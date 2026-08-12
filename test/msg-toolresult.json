@@ -1,0 +1,31 @@
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 500,
+  "stream": false,
+  "tools": [
+    {
+      "name": "Bash",
+      "description": "Run a shell command",
+      "input_schema": {
+        "type": "object",
+        "properties": { "command": { "type": "string" } },
+        "required": ["command"]
+      }
+    }
+  ],
+  "messages": [
+    { "role": "user", "content": "列出当前目录文件" },
+    {
+      "role": "assistant",
+      "content": [
+        { "type": "tool_use", "id": "toolu_cb_mock_abc123", "name": "Bash", "input": { "command": "ls" } }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        { "type": "tool_result", "tool_use_id": "toolu_cb_mock_abc123", "content": "file1.txt\nfile2.txt" }
+      ]
+    }
+  ]
+}

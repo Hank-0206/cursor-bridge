@@ -1,0 +1,9 @@
+{
+  "model": "claude-sonnet-4-5-20250929",
+  "max_tokens": 200,
+  "stream": true,
+  "system": "You are helpful.",
+  "messages": [
+    { "role": "user", "content": "你好，介绍一下自己" }
+  ]
+}

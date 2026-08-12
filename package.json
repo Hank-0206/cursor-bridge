@@ -1,0 +1,25 @@
+{
+  "name": "cursor-bridge",
+  "version": "0.1.0",
+  "description": "把 Cursor 订阅里的模型反向代理成 Anthropic / OpenAI 兼容 API，供 cc-switch、Claude Code 及局域网用户使用",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.27",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}
