@@ -184,6 +184,10 @@
           <div class="hint" style="margin:0 0 6px">桥接客户端工具（Claude Code 需开启）</div>
           <select id="allowTools"><option value="true">开启（推荐）</option><option value="false">关闭（纯对话）</option></select>
         </div>
+        <div style="flex:1;min-width:220px">
+          <div class="hint" style="margin:0 0 6px">性能拉满（最高思考/最大上下文/尽量 fast）</div>
+          <select id="maximize"><option value="true">开启（更耗额度）</option><option value="false">关闭（用官方默认档）</option></select>
+        </div>
         <div style="flex:1;min-width:160px">
           <div class="hint" style="margin:0 0 6px">最大并发运行数</div>
           <input type="number" id="maxConcurrent" min="1" max="32">
@@ -298,6 +302,7 @@ function renderStatus(s) {
     ? `当前 Key 来源：${s.cursorKey.source === "config" ? "面板配置" : s.cursorKey.source === "env" ? "环境变量 CURSOR_API_KEY" : "SDK 浏览器登录"}`
     : "尚未配置。填入 Cursor API Key，或点击\u201c浏览器登录\u201d用 Cursor 账号授权（不需要手动生成 Key）。";
   $("allowTools").value = String(s.config.allowClientTools);
+  $("maximize").value = String(s.config.maximizeModels ?? false);
   $("maxConcurrent").value = s.config.maxConcurrentRuns;
   if (document.activeElement !== $("overrides")) {
     $("overrides").value = JSON.stringify(s.config.modelOverrides ?? {}, null, 2);
@@ -435,6 +440,7 @@ async function saveConfig() {
     body: JSON.stringify({
       defaultModel: $("defaultModel").value,
       allowClientTools: $("allowTools").value === "true",
+      maximizeModels: $("maximize").value === "true",
       maxConcurrentRuns: Number($("maxConcurrent").value) || 4,
       modelOverrides: overrides,
     }),

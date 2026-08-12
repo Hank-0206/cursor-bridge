@@ -94,15 +94,18 @@ Claude Code 这类客户端要求模型返回 `tool_use`、由客户端本地执
 
 会话等待工具结果最长保活 10 分钟（`sessionIdleMs` 可调），超时自动取消并释放资源。
 
-## 模型映射
+## 模型映射与思考强度
 
-请求里的模型名按以下顺序解析成 Cursor 模型 id：
+请求里的模型名按以下顺序解析成 Cursor 模型（含参数）：
 
 1. 面板「手动模型映射」里的精确规则（如 `{"claude-haiku-4-5": "composer-2.5-fast"}`）；
 2. 与 Cursor 模型 id / 别名精确匹配（可直接请求 `composer-2.5`、`gpt-5.2` 等）；
-3. 去掉 `-20250929`、`-latest` 之类后缀再匹配；
-4. 关键词启发式：`opus` / `sonnet` / `haiku` / `gpt` / `gemini` / `grok` ...；
-5. 兜底默认模型（默认 `auto`，面板可改）。
+3. **变体后缀名**：`claude-opus-5-thinking-max-fast`、`gpt-5.6-luna-max`、`gpt-5.5-extra-high` 这类计费标签风格的名字会解析成 基础模型 + 思考/上下文/速度参数，客户端想用哪档直接在模型名里写；
+4. 去掉 `-20250929`、`-latest` 之类后缀再匹配；
+5. 关键词启发式：`opus` / `sonnet` / `haiku` / `gpt` / `gemini` / `grok` ...；
+6. 兜底默认模型（默认 `auto`，面板可改）。
+
+面板「性能拉满」开关（`maximizeModels`）开启后，凡是**没有显式指定档位**的请求，自动套用该模型官方预设里的最高组合：thinking 开 → effort/reasoning 最高 → 上下文最大 → 能开 fast 就开 fast（只挑官方枚举过的合法组合，例如 GPT 系 1m 上下文与 fast 不能共存时优先保上下文）。显式写了档位的模型名不受影响。注意：拉满会明显加快额度消耗。
 
 ## 配置文件
 

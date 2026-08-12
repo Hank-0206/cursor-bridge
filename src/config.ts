@@ -24,6 +24,8 @@ export interface AppConfig {
   modelOverrides: Record<string, string>;
   /** 是否把客户端声明的工具桥接给模型（Claude Code 需要开启）。 */
   allowClientTools: boolean;
+  /** 性能拉满：未显式指定档位的请求，自动套用该模型最高的思考/上下文/速度组合。 */
+  maximizeModels: boolean;
   /** 同时进行的模型运行数量上限，超出的请求排队。 */
   maxConcurrentRuns: number;
   /** 单次响应无输出的超时时间。 */
@@ -40,6 +42,7 @@ const DEFAULTS: AppConfig = {
   defaultModel: "auto",
   modelOverrides: {},
   allowClientTools: true,
+  maximizeModels: false,
   maxConcurrentRuns: 4,
   requestTimeoutMs: 600_000,
   sessionIdleMs: 600_000,

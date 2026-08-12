@@ -91,6 +91,8 @@ class Session {
   agent: SDKAgent | null = null;
   run: Run | null = null;
   cursorModel = "";
+  /** 含参数的展示名，用于日志。 */
+  modelLabel = "";
   requestedModel = "";
   holdsSlot = false;
   closed = false;
@@ -183,7 +185,7 @@ class Session {
       api: ctx.meta.api,
       keyLabel: ctx.meta.keyLabel,
       requestedModel: this.requestedModel,
-      cursorModel: this.cursorModel,
+      cursorModel: this.modelLabel || this.cursorModel,
       stream: ctx.meta.stream,
       status: reason === "tool_use" ? "tool_use" : "ok",
       stopReason: reason,
@@ -204,7 +206,7 @@ class Session {
       api: ctx.meta.api,
       keyLabel: ctx.meta.keyLabel,
       requestedModel: this.requestedModel,
-      cursorModel: this.cursorModel,
+      cursorModel: this.modelLabel || this.cursorModel,
       stream: ctx.meta.stream,
       status: "error",
       durationMs: Date.now() - ctx.startedAt,
@@ -423,6 +425,7 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
   try {
     const resolved = await resolveModel(req.requestedModel);
     session.cursorModel = resolved.id;
+    session.modelLabel = resolved.label;
 
     await acquireSlot();
     session.holdsSlot = true;
@@ -454,7 +457,7 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
     const { key } = effectiveCursorKey();
     const options: AgentOptions = {
       ...(key ? { apiKey: key } : {}),
-      model: { id: session.cursorModel },
+      model: { id: resolved.id, ...(resolved.params ? { params: resolved.params } : {}) },
       tools: useTools ? ["mcp"] : [],
       name: `cursor-bridge ${session.id}`,
       local: {

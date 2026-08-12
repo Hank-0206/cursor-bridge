@@ -49,6 +49,7 @@ adminRouter.get("/status", (_req: Request, res: Response) => {
     config: {
       defaultModel: config.defaultModel,
       allowClientTools: config.allowClientTools,
+      maximizeModels: config.maximizeModels,
       maxConcurrentRuns: config.maxConcurrentRuns,
       requestTimeoutMs: config.requestTimeoutMs,
       sessionIdleMs: config.sessionIdleMs,
@@ -173,6 +174,7 @@ const PATCHABLE: Array<keyof AppConfig> = [
   "defaultModel",
   "modelOverrides",
   "allowClientTools",
+  "maximizeModels",
   "maxConcurrentRuns",
   "requestTimeoutMs",
   "sessionIdleMs",
