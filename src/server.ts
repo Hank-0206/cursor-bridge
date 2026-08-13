@@ -7,6 +7,7 @@ import { requireApiKey, requireLoopback } from "./auth.js";
 import { effectiveCursorKey, getConfig, loadConfig, maskKey } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
+import { handleResponses } from "./responses.js";
 import { flushUsage } from "./usage.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,6 +60,13 @@ app.post("/v1/chat/completions", (req, res) => {
   });
 });
 
+app.post("/v1/responses", (req, res) => {
+  void handleResponses(req, res, (req as AuthedRequest).proxyKeyLabel ?? "unknown").catch((err) => {
+    warn(`处理 /v1/responses 时未捕获错误: ${err}`);
+    if (!res.headersSent) res.status(500).json({ error: { message: String(err), type: "server_error" } });
+  });
+});
+
 app.get("/v1/models", (req, res) => {
   void handleListModels(req, res);
 });
@@ -77,7 +85,8 @@ app.use((req: Request, res: Response) => {
 
 /* ---------------- 启动 ---------------- */
 
-const server = app.listen(config.port, config.host, () => {
+const listenPort = process.env.PORT ? Number(process.env.PORT) : config.port;
+const server = app.listen(listenPort, config.host, () => {
   const { source } = effectiveCursorKey();
   const firstKey = config.proxyKeys[0];
   const lans = lanAddresses();
@@ -106,7 +115,7 @@ const server = app.listen(config.port, config.host, () => {
 
 server.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
-    console.error(`端口 ${config.port} 已被占用，请修改 data/config.json 中的 port 后重试`);
+    console.error(`端口 ${listenPort} 已被占用，请修改 data/config.json 中的 port 后重试`);
   } else {
     console.error(`服务启动失败: ${err.message}`);
   }

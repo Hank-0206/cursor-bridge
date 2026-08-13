@@ -1,0 +1,19 @@
+{
+  "model": "claude-sonnet-4-5",
+  "instructions": "You are Codex.",
+  "input": [
+    { "type": "message", "role": "user", "content": [{ "type": "input_text", "text": "列出当前目录文件" }] },
+    { "type": "function_call", "call_id": "call_test123", "name": "shell", "arguments": "{\"command\":[\"ls\"]}" },
+    { "type": "function_call_output", "call_id": "call_test123", "output": "file1.txt\nfile2.txt" }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "shell",
+      "description": "Run a shell command",
+      "parameters": { "type": "object", "properties": { "command": { "type": "array" } } }
+    }
+  ],
+  "stream": false,
+  "store": false
+}

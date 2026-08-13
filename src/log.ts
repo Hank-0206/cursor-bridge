@@ -4,7 +4,7 @@ import { recordUsage } from "./usage.js";
 
 export interface RequestLogEntry {
   ts: string;
-  api: "anthropic" | "openai" | "test";
+  api: "anthropic" | "openai" | "responses" | "test";
   keyLabel: string;
   requestedModel: string;
   cursorModel: string;

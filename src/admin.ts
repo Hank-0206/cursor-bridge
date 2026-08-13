@@ -13,6 +13,7 @@ import { executeBridgeRequest, sessionStats } from "./engine.js";
 import { recentRequests } from "./log.js";
 import { cachedModels, invalidateModelCache, listModels } from "./models.js";
 import { resetUsage, usageStats } from "./usage.js";
+import { lastResponsesRequest } from "./responses.js";
 import { BridgeError, type BridgeToolCall, type BridgeUsage, type Sink, type StopReason } from "./types.js";
 
 const startedAt = Date.now();
@@ -200,6 +201,11 @@ adminRouter.patch("/config", (req: Request, res: Response) => {
 
 adminRouter.get("/requests", (_req: Request, res: Response) => {
   res.json({ ok: true, requests: recentRequests() });
+});
+
+/** 联调用：查看最后一次 /v1/responses 的原始请求体（Codex 真实结构）。 */
+adminRouter.get("/last-responses-request", (_req: Request, res: Response) => {
+  res.json({ ok: true, last: lastResponsesRequest() });
 });
 
 adminRouter.get("/usage", (_req: Request, res: Response) => {

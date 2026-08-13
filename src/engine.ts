@@ -81,7 +81,7 @@ interface ResponseCtx {
 }
 
 export interface RequestMeta {
-  api: "anthropic" | "openai" | "test";
+  api: "anthropic" | "openai" | "responses" | "test";
   keyLabel: string;
   stream: boolean;
 }
