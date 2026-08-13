@@ -216,7 +216,8 @@
 
     <div class="card">
       <h2><span class="dot"></span>用量统计（按令牌累计，重启不丢失）</h2>
-      <table id="usageTable"><thead><tr><th>令牌</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>合计</th><th>最后使用</th></tr></thead><tbody></tbody></table>
+      <div class="stat-row" id="usageTotals" style="margin-bottom:14px"></div>
+      <table id="usageTable"><thead><tr><th>令牌</th><th>合计消耗</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>最后使用</th></tr></thead><tbody></tbody></table>
       <p class="hint" id="noUsage">暂无用量记录</p>
       <div class="row" style="margin-top:10px">
         <span class="hint" style="margin:0" id="usageSince"></span>
@@ -371,6 +372,24 @@ async function refreshUsage() {
     const tbody = $("usageTable").querySelector("tbody");
     $("noUsage").style.display = r.keys.length ? "none" : "block";
     $("usageSince").textContent = "统计自 " + new Date(r.since).toLocaleString();
+    const t = r.keys.reduce(
+      (a, k) => ({
+        req: a.req + k.requests,
+        inT: a.inT + k.inputTokens,
+        outT: a.outT + k.outputTokens,
+        cw: a.cw + k.cacheWriteTokens,
+        cr: a.cr + k.cacheReadTokens,
+      }),
+      { req: 0, inT: 0, outT: 0, cw: 0, cr: 0 },
+    );
+    const grand = t.inT + t.outT + t.cw + t.cr;
+    $("usageTotals").innerHTML = `
+      <div class="stat"><div class="k">总消耗（全部令牌合计）</div><div class="v" title="${grand.toLocaleString()}" style="color:var(--accent2)">${fmtNum(grand)} tokens</div></div>
+      <div class="stat"><div class="k">总请求数</div><div class="v">${t.req.toLocaleString()}</div></div>
+      <div class="stat"><div class="k">输入</div><div class="v" title="${t.inT.toLocaleString()}">${fmtNum(t.inT)}</div></div>
+      <div class="stat"><div class="k">输出</div><div class="v" title="${t.outT.toLocaleString()}">${fmtNum(t.outT)}</div></div>
+      <div class="stat"><div class="k">缓存写</div><div class="v" title="${t.cw.toLocaleString()}">${fmtNum(t.cw)}</div></div>
+      <div class="stat"><div class="k">缓存读</div><div class="v" title="${t.cr.toLocaleString()}">${fmtNum(t.cr)}</div></div>`;
     tbody.innerHTML = r.keys.map((k) => {
       const total = k.inputTokens + k.outputTokens + k.cacheWriteTokens + k.cacheReadTokens;
       const models = Object.entries(k.models)
@@ -379,12 +398,12 @@ async function refreshUsage() {
         .join("<br>");
       return `<tr>
         <td><details><summary style="cursor:pointer">${esc(k.label)}</summary><div class="muted" style="font-size:11.5px;line-height:1.8;padding-top:4px">${models}</div></details></td>
+        <td title="${total.toLocaleString()} tokens"><b style="color:var(--accent2);font-size:14px">${fmtNum(total)}</b></td>
         <td title="成功 ${k.ok} / 工具 ${k.toolUse} / 错误 ${k.errors}">${k.requests}</td>
         <td title="${k.inputTokens.toLocaleString()}">${fmtNum(k.inputTokens)}</td>
         <td title="${k.outputTokens.toLocaleString()}">${fmtNum(k.outputTokens)}</td>
         <td title="${k.cacheWriteTokens.toLocaleString()}">${fmtNum(k.cacheWriteTokens)}</td>
         <td title="${k.cacheReadTokens.toLocaleString()}">${fmtNum(k.cacheReadTokens)}</td>
-        <td title="${total.toLocaleString()}"><b>${fmtNum(total)}</b></td>
         <td class="muted">${new Date(k.lastUsed).toLocaleString()}</td>
       </tr>`;
     }).join("");
