@@ -129,6 +129,16 @@ Claude Code 这类客户端要求模型返回 `tool_use`、由客户端本地执
 - 每个新对话轮次会创建一次 agent（首 token 延迟约几秒）；同一轮内的连续工具调用走会话续接，无额外开销。
 - token 用量在后端未上报时为估算值（约 4 字符 = 1 token）。
 
+## 作为后台服务常驻运行（Windows）
+
+`scripts/` 下的脚本已做成路径自适应，解压到任意目录都能用：
+
+- **启动（隐藏窗口、崩溃自动重启）**：双击 `scripts\start-hidden.vbs`
+- **停止**：运行 `scripts\stop-server.cmd`
+- **运行日志**：`data\server.log`
+- **开机自启**：按 `Win+R` 输入 `shell:startup` 打开启动文件夹，把 `scripts\start-hidden.vbs` 的快捷方式放进去；或在注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 加一项，值为 `wscript.exe "<项目路径>\scripts\start-hidden.vbs"`。
+  - 注意：部分安全软件会拦截脚本类自启，若开机后服务没起来，手动双击 `start-hidden.vbs` 或在安全软件里加信任。
+
 ## 开发
 
 ```powershell
