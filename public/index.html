@@ -215,6 +215,16 @@
     </div>
 
     <div class="card">
+      <h2><span class="dot"></span>用量统计（按令牌累计，重启不丢失）</h2>
+      <table id="usageTable"><thead><tr><th>令牌</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>合计</th><th>最后使用</th></tr></thead><tbody></tbody></table>
+      <p class="hint" id="noUsage">暂无用量记录</p>
+      <div class="row" style="margin-top:10px">
+        <span class="hint" style="margin:0" id="usageSince"></span>
+        <button class="small danger" onclick="resetUsageStats()" style="margin-left:auto">清零重计</button>
+      </div>
+    </div>
+
+    <div class="card">
       <h2><span class="dot"></span>最近请求</h2>
       <table id="reqTable"><thead><tr><th>时间</th><th>协议</th><th>令牌</th><th>模型</th><th>状态</th><th>耗时</th><th>tokens</th></tr></thead><tbody></tbody></table>
       <p class="hint" id="noReq">暂无请求记录</p>
@@ -352,6 +362,42 @@ async function refreshKeys() {
   } catch { /* ignore */ }
 }
 
+const fmtNum = (n) => (n >= 1e8 ? (n / 1e8).toFixed(2) + "亿" : n >= 1e4 ? (n / 1e4).toFixed(1) + "万" : String(n));
+
+async function refreshUsage() {
+  try {
+    const r = await api("/admin/usage");
+    if (!r.ok) return;
+    const tbody = $("usageTable").querySelector("tbody");
+    $("noUsage").style.display = r.keys.length ? "none" : "block";
+    $("usageSince").textContent = "统计自 " + new Date(r.since).toLocaleString();
+    tbody.innerHTML = r.keys.map((k) => {
+      const total = k.inputTokens + k.outputTokens + k.cacheWriteTokens + k.cacheReadTokens;
+      const models = Object.entries(k.models)
+        .sort((a, b) => b[1].inputTokens + b[1].outputTokens - (a[1].inputTokens + a[1].outputTokens))
+        .map(([m, v]) => `${esc(m)}：${fmtNum(v.inputTokens + v.outputTokens)} tokens（${v.requests} 次）`)
+        .join("<br>");
+      return `<tr>
+        <td><details><summary style="cursor:pointer">${esc(k.label)}</summary><div class="muted" style="font-size:11.5px;line-height:1.8;padding-top:4px">${models}</div></details></td>
+        <td title="成功 ${k.ok} / 工具 ${k.toolUse} / 错误 ${k.errors}">${k.requests}</td>
+        <td title="${k.inputTokens.toLocaleString()}">${fmtNum(k.inputTokens)}</td>
+        <td title="${k.outputTokens.toLocaleString()}">${fmtNum(k.outputTokens)}</td>
+        <td title="${k.cacheWriteTokens.toLocaleString()}">${fmtNum(k.cacheWriteTokens)}</td>
+        <td title="${k.cacheReadTokens.toLocaleString()}">${fmtNum(k.cacheReadTokens)}</td>
+        <td title="${total.toLocaleString()}"><b>${fmtNum(total)}</b></td>
+        <td class="muted">${new Date(k.lastUsed).toLocaleString()}</td>
+      </tr>`;
+    }).join("");
+  } catch { /* ignore */ }
+}
+
+async function resetUsageStats() {
+  if (!confirm("确定清零所有用量统计？此操作不可恢复")) return;
+  await api("/admin/usage/reset", { method: "POST" });
+  toast("用量统计已清零");
+  refreshUsage();
+}
+
 async function refreshRequests() {
   try {
     const r = await api("/admin/requests");
@@ -468,9 +514,10 @@ function showVisitor() {
     await api("/admin/status");
     $("panel").style.display = "block";
     await refreshStatus();
-    await Promise.all([refreshKeys(), refreshModels(), refreshRequests()]);
+    await Promise.all([refreshKeys(), refreshModels(), refreshRequests(), refreshUsage()]);
     setInterval(refreshStatus, 5000);
     setInterval(refreshRequests, 5000);
+    setInterval(refreshUsage, 10000);
   } catch (e) {
     showVisitor();
   }

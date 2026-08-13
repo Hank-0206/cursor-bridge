@@ -12,6 +12,7 @@ import {
 import { executeBridgeRequest, sessionStats } from "./engine.js";
 import { recentRequests } from "./log.js";
 import { cachedModels, invalidateModelCache, listModels } from "./models.js";
+import { resetUsage, usageStats } from "./usage.js";
 import { BridgeError, type BridgeToolCall, type BridgeUsage, type Sink, type StopReason } from "./types.js";
 
 const startedAt = Date.now();
@@ -199,6 +200,19 @@ adminRouter.patch("/config", (req: Request, res: Response) => {
 
 adminRouter.get("/requests", (_req: Request, res: Response) => {
   res.json({ ok: true, requests: recentRequests() });
+});
+
+adminRouter.get("/usage", (_req: Request, res: Response) => {
+  const stats = usageStats();
+  const keys = Object.values(stats.keys).sort(
+    (a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens),
+  );
+  res.json({ ok: true, since: stats.since, keys });
+});
+
+adminRouter.post("/usage/reset", (_req: Request, res: Response) => {
+  resetUsage();
+  res.json({ ok: true });
 });
 
 /** 从管理面板发起一次真实调用，验证整条链路。 */

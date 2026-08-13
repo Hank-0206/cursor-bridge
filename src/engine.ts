@@ -192,6 +192,8 @@ class Session {
       durationMs: Date.now() - ctx.startedAt,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheWriteTokens: usage.cacheWriteTokens,
     });
     this.response = null;
   }
@@ -562,6 +564,8 @@ async function runMock(req: BridgeRequest, sink: Sink, meta: RequestMeta): Promi
       durationMs: Date.now() - startedAt,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheWriteTokens: usage.cacheWriteTokens,
     });
   };
 

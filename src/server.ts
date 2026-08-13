@@ -7,6 +7,7 @@ import { requireApiKey, requireLoopback } from "./auth.js";
 import { effectiveCursorKey, getConfig, loadConfig, maskKey } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
+import { flushUsage } from "./usage.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const config = loadConfig();
@@ -115,7 +116,10 @@ server.on("error", (err: NodeJS.ErrnoException) => {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     info("正在关闭...");
+    flushUsage();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();
   });
 }
+
+process.on("exit", () => flushUsage());
