@@ -1,28 +1,39 @@
 # cursor-bridge
 
-把你 Cursor 订阅里的模型反向代理成 **Anthropic Messages API** 和 **OpenAI Chat Completions API**，让 cc-switch / Claude Code / 各类 OpenAI 兼容客户端，以及**局域网里的其他人**都能用你的 Cursor 账号调用模型。
+把你 Cursor 订阅里的模型反向代理成 **Anthropic Messages API**、**OpenAI Chat Completions API** 和 **OpenAI Responses API**，让 cc-switch / Claude Code / Codex / 各类 OpenAI 兼容客户端，以及**局域网里的其他人**都能用你的 Cursor 账号调用模型。
+
+仓库：https://github.com/Hank-0206/cursor-bridge
 
 ```
-局域网用户 (Claude Code / Cherry Studio / openai SDK ...)
+局域网用户 (Claude Code / Codex / Cherry Studio / openai SDK ...)
         │  访问令牌 sk-cb-...
         ▼
-┌─────────────────────────────┐
-│  cursor-bridge (你的电脑)     │
-│  /v1/messages          ← Anthropic 协议
-│  /v1/chat/completions  ← OpenAI 协议
-│  /v1/models                  │
-│  管理面板（仅本机可访问）        │
-└──────────┬──────────────────┘
-           │  Cursor API Key (crsr_...)
-           ▼
+┌─────────────────────────────────┐
+│  cursor-bridge (你的电脑)         │
+│  /v1/messages            ← Anthropic
+│  /v1/chat/completions    ← OpenAI Chat
+│  /v1/responses           ← OpenAI Responses（Codex）
+│  /v1/models                     │
+│  管理面板（仅本机可访问）            │
+└──────────────┬──────────────────┘
+               │  Cursor API Key (crsr_...)
+               ▼
      Cursor 官方后端（@cursor/sdk 本地 agent，已禁用内置工具）
 ```
+
+## 环境要求
+
+- Node.js **>= 20**
+- 一台已登录 / 已有 [Cursor API Key](https://cursor.com/dashboard/api) 的电脑（作为服务器）
+- Windows / macOS / Linux 均可；本仓库的后台常驻脚本按 Windows 写
 
 ## 快速开始
 
 ```powershell
+git clone https://github.com/Hank-0206/cursor-bridge.git
+cd cursor-bridge
 npm install
-npm run dev        # 或 npm start
+npm start          # 开发热重载用 npm run dev
 ```
 
 启动后打开面板 **http://127.0.0.1:8318/**：
@@ -31,6 +42,27 @@ npm run dev        # 或 npm start
 2. 点「发送测试请求」确认链路通畅；
 3. 在「访问令牌」卡片给每个使用者生成一个 `sk-cb-...` 令牌发给他们；
 4. 使用者按面板「接入指南」里的模板配置即可。
+
+默认监听 `0.0.0.0:8318`。临时换端口：
+
+```powershell
+$env:PORT='8319'; npm start
+```
+
+## 对外 API
+
+所有 `/v1/*` 都要带访问令牌：`x-api-key: sk-cb-...` 或 `Authorization: Bearer sk-cb-...`。
+
+| 方法 | 路径 | 协议 | 典型客户端 |
+| --- | --- | --- | --- |
+| `POST` | `/v1/messages` | Anthropic Messages | Claude Code、cc-switch |
+| `POST` | `/v1/messages/count_tokens` | Anthropic | 估算 token |
+| `POST` | `/v1/chat/completions` | OpenAI Chat Completions | Cherry Studio、openai SDK |
+| `POST` | `/v1/responses` | OpenAI Responses | Codex CLI / Codex Desktop |
+| `GET` | `/v1/models` | OpenAI | 列出可映射模型 |
+| `GET` | `/healthz` | — | 健康检查（无需令牌） |
+
+`/admin/*` 与配置修改只接受本机 `127.0.0.1`，局域网用户打不开管理接口。
 
 ## 在 cc-switch 里配置
 
@@ -49,6 +81,21 @@ CC Switch → 添加供应商 → 应用选 **Claude Code** → 预设选 **自�
 
 > 如果之前在 `~/.zshrc` / PowerShell Profile 里手动 export 过 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`，环境变量优先级更高，记得清掉，否则 cc-switch 的切换不生效。
 
+## 直接配置 Claude Code
+
+不经过 cc-switch 时，把同样的环境变量写进 `~/.claude/settings.json`：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8318",
+    "ANTHROPIC_AUTH_TOKEN": "sk-cb-你的访问令牌"
+  }
+}
+```
+
+改完后重启 Claude Code。
+
 ## OpenAI 兼容客户端
 
 - Base URL：`http://<服务器IP>:8318/v1`
@@ -62,6 +109,37 @@ r = client.chat.completions.create(model="auto", messages=[{"role": "user", "con
 print(r.choices[0].message.content)
 ```
 
+Cherry Studio、NextChat 等填同样的 Base URL 和 API Key 即可。
+
+## Codex（OpenAI Responses API）
+
+Codex CLI / Codex Desktop 走 `/v1/responses`，不是 Chat Completions。在 `~/.codex/config.toml` 加一个自定义供应商：
+
+```toml
+model = "auto"
+model_provider = "cursor_bridge"
+
+[model_providers.cursor_bridge]
+name = "cursor-bridge"
+base_url = "http://127.0.0.1:8318/v1"
+wire_api = "responses"
+env_key = "CURSOR_BRIDGE_API_KEY"
+```
+
+然后设置令牌（PowerShell）：
+
+```powershell
+$env:CURSOR_BRIDGE_API_KEY = "sk-cb-你的访问令牌"
+```
+
+局域网另一台机器把 `base_url` 改成 `http://<服务器IP>:8318/v1`。模型名同样可用 `auto` 或 Cursor 模型 id（如 `composer-2.5`、`gpt-5.6-sol`）。
+
+也可用 curl 直接打 Responses 接口：
+
+```powershell
+curl.exe -sN -X POST http://127.0.0.1:8318/v1/responses -H "content-type: application/json" -H "x-api-key: <令牌>" --data "@test/resp-stream.json"
+```
+
 ## 局域网访问与防火墙
 
 - 默认监听 `0.0.0.0:8318`，同一局域网内的设备用 `http://<你的IP>:8318` 访问（启动横幅和面板里都会显示检测到的 IP）。
@@ -71,7 +149,7 @@ print(r.choices[0].message.content)
 netsh advfirewall firewall add rule name="cursor-bridge" dir=in action=allow protocol=TCP localport=8318
 ```
 
-- 只想本机使用：面板改不了监听地址的话，把 `data/config.json` 里的 `host` 改成 `127.0.0.1` 后重启。
+- 只想本机使用：把 `data/config.json` 里的 `host` 改成 `127.0.0.1` 后重启。
 
 ## 安全模型
 
@@ -82,14 +160,14 @@ netsh advfirewall firewall add rule name="cursor-bridge" dir=in action=allow pro
 | Agent 工具封锁 | 通过 SDK 的 `tools: []` / `tools: ["mcp"]` 禁用 Cursor agent 的内置工具，局域网用户**无法**借模型在你机器上执行终端命令或读写文件 |
 | Key 不落日志 | 日志与请求记录只保留令牌备注名，不记录任何密钥内容 |
 
-费用提醒：所有调用消耗的都是你 Cursor 账号的额度，面板「最近请求」可以看到每个令牌的使用情况；Key 泄露可随时到 Cursor Dashboard 撤销。
+费用提醒：所有调用消耗的都是你 Cursor 账号的额度，面板「用量统计 / 最近请求」可以看到每个令牌的使用情况；Key 泄露可随时到 Cursor Dashboard 撤销。
 
 ## 工具调用桥接原理
 
-Claude Code 这类客户端要求模型返回 `tool_use`、由客户端本地执行工具后回传结果。cursor-bridge 不用提示词模拟，而是把客户端声明的工具注册为 Cursor SDK 的 **customTools**（进程内 MCP 工具）：
+Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端本地执行后再回传结果。cursor-bridge 不用提示词模拟，而是把客户端声明的工具注册为 Cursor SDK 的 **customTools**（进程内 MCP 工具）：
 
-1. 模型真实发起工具调用 → 代理拦截，转换成 `tool_use` 返回给客户端并结束本次 HTTP 响应，agent 运行保持挂起；
-2. 客户端执行工具后带着 `tool_result` 再次请求 → 代理按 `tool_use_id` 匹配回挂起的会话，注入结果，**同一个 agent 运行继续**，不重放上下文；
+1. 模型真实发起工具调用 → 代理拦截，转换成 `tool_use` / `function_call` 返回给客户端并结束本次 HTTP 响应，agent 运行保持挂起；
+2. 客户端执行工具后带着 `tool_result` / `function_call_output` 再次请求 → 代理按调用 id 匹配回挂起的会话，注入结果，**同一个 agent 运行继续**，不重放上下文；
 3. 匹配不上（服务重启、新对话轮次等）时自动降级为全量历史重放，正确性不受影响。
 
 会话等待工具结果最长保活 10 分钟（`sessionIdleMs` 可调），超时自动取消并释放资源。
@@ -107,6 +185,12 @@ Claude Code 这类客户端要求模型返回 `tool_use`、由客户端本地执
 
 面板「性能拉满」开关（`maximizeModels`）开启后，凡是**没有显式指定档位**的请求，自动套用该模型官方预设里的最高组合：thinking 开 → effort/reasoning 最高 → 上下文最大 → 能开 fast 就开 fast（只挑官方枚举过的合法组合，例如 GPT 系 1m 上下文与 fast 不能共存时优先保上下文）。显式写了档位的模型名不受影响。注意：拉满会明显加快额度消耗。
 
+## 用量统计
+
+面板「用量统计」按访问令牌累计请求数、输入 / 输出 / 缓存读写 token，数据写在 `data/usage.json`，**重启不丢失**。可按令牌展开看各模型消耗，也可一键清零重计。
+
+后端未上报真实用量时按约 4 字符 = 1 token 估算。
+
 ## 配置文件
 
 `data/config.json`（已 gitignore，含密钥请勿外传）：
@@ -119,8 +203,17 @@ Claude Code 这类客户端要求模型返回 `tool_use`、由客户端本地执
 | `defaultModel` | `auto` | 模型解析兜底 |
 | `modelOverrides` | `{}` | 手动模型映射 |
 | `allowClientTools` | `true` | 关掉则忽略客户端工具（纯对话） |
+| `maximizeModels` | `false` | 未写档位时自动拉满思考 / 上下文 / 速度 |
 | `maxConcurrentRuns` | `4` | 并发上限，超出排队 |
 | `requestTimeoutMs` / `sessionIdleMs` | 600000 | 输出超时 / 工具等待保活 |
+
+环境变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `CURSOR_API_KEY` | Cursor 官方 Key，面板未填时回退到它 |
+| `PORT` | 覆盖 `config.json` 里的监听端口 |
+| `CB_MOCK` | `1` = 不调真实模型；`tool` = 再模拟一次工具调用 |
 
 ## 已知限制
 
@@ -152,4 +245,5 @@ $env:CB_MOCK='tool'; npm run dev # mock 模式并模拟一次工具调用
 
 ```powershell
 curl.exe -sN -X POST http://127.0.0.1:8318/v1/messages -H "content-type: application/json" -H "x-api-key: <令牌>" --data "@test/msg-stream.json"
+curl.exe -sN -X POST http://127.0.0.1:8318/v1/responses -H "content-type: application/json" -H "x-api-key: <令牌>" --data "@test/resp-stream.json"
 ```
