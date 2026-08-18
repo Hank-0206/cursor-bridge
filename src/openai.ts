@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { executeBridgeRequest, type RequestMeta } from "./engine.js";
-import { listModels } from "./models.js";
+import { listModels, filterModelsForKey } from "./models.js";
+import { type AuthedRequest } from "./auth.js";
 import {
   BridgeError,
   type BridgeImage,
@@ -126,6 +127,7 @@ export function parseOpenAIRequest(body: Record<string, unknown>): BridgeRequest
 
 const ERROR_STATUS: Record<BridgeError["kind"], { status: number; type: string }> = {
   auth: { status: 401, type: "invalid_request_error" },
+  forbidden: { status: 403, type: "permission_error" },
   rate_limit: { status: 429, type: "rate_limit_error" },
   invalid_request: { status: 400, type: "invalid_request_error" },
   overloaded: { status: 503, type: "server_error" },
@@ -347,16 +349,24 @@ export async function handleChatCompletions(req: Request, res: Response, keyLabe
   }
   const stream = Boolean(body.stream);
   const includeUsage = Boolean((body.stream_options as Record<string, unknown> | undefined)?.include_usage);
-  const meta: RequestMeta = { api: "openai", keyLabel, stream };
+  const meta: RequestMeta = {
+    api: "openai",
+    keyLabel,
+    stream,
+    allowedModels: (req as AuthedRequest).proxyKey?.allowedModels,
+  };
   const sink: Sink = stream
     ? new OpenAIStreamSink(res, bridgeReq.requestedModel, includeUsage)
     : new OpenAIJsonSink(res, bridgeReq.requestedModel);
   await executeBridgeRequest(bridgeReq, sink, meta);
 }
 
-export async function handleListModels(_req: Request, res: Response): Promise<void> {
+export async function handleListModels(req: Request, res: Response): Promise<void> {
   try {
-    const items = await listModels();
+    const items = filterModelsForKey(
+      await listModels(),
+      (req as AuthedRequest).proxyKey?.allowedModels,
+    );
     const created = Math.floor(Date.now() / 1000);
     res.json({
       object: "list",

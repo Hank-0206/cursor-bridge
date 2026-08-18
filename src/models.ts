@@ -1,6 +1,7 @@
 import { Cursor, type ModelParameterValue, type SDKModel } from "@cursor/sdk";
-import { effectiveCursorKey, getConfig } from "./config.js";
+import { allowedModelSet, effectiveCursorKey, getConfig } from "./config.js";
 import { info } from "./log.js";
+import { BridgeError } from "./types.js";
 
 const CACHE_TTL_MS = 5 * 60_000;
 
@@ -286,4 +287,47 @@ export async function resolveModel(requested: string): Promise<ResolvedModel> {
   }
 
   return { id: model.id, params, label: buildLabel(model.id, params), via: viaPrefix + how };
+}
+
+export function filterModelsForKey<T extends { id: string; aliases?: string[] }>(
+  items: T[],
+  allowedModels?: string[],
+): T[] {
+  const allowed = allowedModelSet(allowedModels);
+  if (!allowed) return items;
+  return items.filter(
+    (m) =>
+      allowed.has(m.id.toLowerCase()) || (m.aliases ?? []).some((a) => allowed.has(a.toLowerCase())),
+  );
+}
+
+function modelAllowed(resolvedId: string, requested: string, allowed: Set<string>): boolean {
+  if (allowed.has(resolvedId.toLowerCase())) return true;
+  const req = requested.trim().toLowerCase();
+  return Boolean(req) && allowed.has(req);
+}
+
+/**
+ * 解析模型并套用令牌白名单。
+ * 请求 `auto` 且默认模型不在白名单时，回落到白名单里的第一个模型。
+ */
+export async function resolveModelForKey(
+  requested: string,
+  allowedModels?: string[],
+): Promise<ResolvedModel> {
+  const allowed = allowedModelSet(allowedModels);
+  let resolved = await resolveModel(requested);
+  if (!allowed) return resolved;
+
+  if (!modelAllowed(resolved.id, requested, allowed) && requested.trim().toLowerCase() === "auto") {
+    const first = [...allowed][0];
+    if (first) resolved = await resolveModel(first);
+  }
+  if (!modelAllowed(resolved.id, requested, allowed)) {
+    throw new BridgeError(
+      "forbidden",
+      `该令牌无权使用模型 ${requested}（解析为 ${resolved.id}）。允许：${[...allowed].join(", ")}`,
+    );
+  }
+  return resolved;
 }

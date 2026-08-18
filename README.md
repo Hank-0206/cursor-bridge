@@ -162,6 +162,8 @@ netsh advfirewall firewall add rule name="cursor-bridge" dir=in action=allow pro
 
 费用提醒：所有调用消耗的都是你 Cursor 账号的额度，面板「用量统计 / 最近请求」可以看到每个令牌的使用情况；Key 泄露可随时到 Cursor Dashboard 撤销。
 
+访问令牌可以单独限制模型：在面板「访问令牌」里点「可用模型」，勾选允许的 Cursor 模型 id。未勾选任何项（不限制）时行为与以前相同。受限令牌请求其它模型会返回 403，`GET /v1/models` 也只列出白名单。
+
 ## 工具调用桥接原理
 
 Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端本地执行后再回传结果。cursor-bridge 不用提示词模拟，而是把客户端声明的工具注册为 Cursor SDK 的 **customTools**（进程内 MCP 工具）：
@@ -199,7 +201,7 @@ Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端
 | --- | --- | --- |
 | `host` / `port` | `0.0.0.0` / `8318` | 监听地址与端口，改后需重启 |
 | `cursorApiKey` | `""` | 也可用环境变量 `CURSOR_API_KEY` 或 SDK 浏览器登录代替 |
-| `proxyKeys` | 自动生成 1 个 | 访问令牌列表 |
+| `proxyKeys` | 自动生成 1 个 | 访问令牌列表。每项可带 `allowedModels`（Cursor 模型 id 数组）；缺省或 `[]` 表示不限制 |
 | `defaultModel` | `auto` | 模型解析兜底 |
 | `modelOverrides` | `{}` | 手动模型映射 |
 | `allowClientTools` | `true` | 关掉则忽略客户端工具（纯对话） |

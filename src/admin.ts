@@ -6,6 +6,7 @@ import {
   generateProxyKey,
   getConfig,
   maskKey,
+  normalizeAllowedModels,
   updateConfig,
   type AppConfig,
 } from "./config.js";
@@ -145,16 +146,51 @@ adminRouter.get("/models", async (req: Request, res: Response) => {
 adminRouter.get("/keys", (_req: Request, res: Response) => {
   res.json({
     ok: true,
-    keys: getConfig().proxyKeys.map((k) => ({ key: k.key, label: k.label, createdAt: k.createdAt })),
+    keys: getConfig().proxyKeys.map((k) => ({
+      key: k.key,
+      label: k.label,
+      createdAt: k.createdAt,
+      allowedModels: k.allowedModels ?? [],
+    })),
   });
 });
 
 adminRouter.post("/keys", (req: Request, res: Response) => {
-  const label = String((req.body as Record<string, unknown>)?.label ?? "").trim() || `key-${Date.now()}`;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const label = String(body.label ?? "").trim() || `key-${Date.now()}`;
   const config = getConfig();
-  const pk = generateProxyKey(label);
+  const pk = generateProxyKey(label, normalizeAllowedModels(body.allowedModels));
   updateConfig({ proxyKeys: [...config.proxyKeys, pk] });
   res.json({ ok: true, key: pk });
+});
+
+adminRouter.patch("/keys/:key", (req: Request, res: Response) => {
+  const config = getConfig();
+  const idx = config.proxyKeys.findIndex((k) => k.key === req.params.key);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: "未找到该令牌" });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const current = config.proxyKeys[idx]!;
+  const next = { ...current };
+  if (typeof body.label === "string") {
+    const label = body.label.trim();
+    if (label) next.label = label;
+  }
+  if ("allowedModels" in body) {
+    if (body.allowedModels != null && !Array.isArray(body.allowedModels)) {
+      res.status(400).json({ ok: false, error: "allowedModels 必须是字符串数组" });
+      return;
+    }
+    const allowed = normalizeAllowedModels(body.allowedModels);
+    if (allowed) next.allowedModels = allowed;
+    else delete next.allowedModels;
+  }
+  const proxyKeys = [...config.proxyKeys];
+  proxyKeys[idx] = next;
+  updateConfig({ proxyKeys });
+  res.json({ ok: true, key: next });
 });
 
 adminRouter.delete("/keys/:key", (req: Request, res: Response) => {

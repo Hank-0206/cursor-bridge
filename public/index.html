@@ -15,40 +15,64 @@
     --accent: #6d8dff;
     --accent2: #37c99e;
     --danger: #ff6b6b;
-    --warn: #f0b429;
     --radius: 12px;
     font-size: 15px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
     background: radial-gradient(1200px 500px at 70% -10%, #16204000, #0b0e14) var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
-    padding: 32px 20px 80px;
+    overflow: hidden;
   }
-  .wrap { max-width: 1080px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; flex-wrap: wrap; }
+  .app { height: 100%; display: flex; flex-direction: column; }
+  header {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px 0;
+  }
   .logo {
-    width: 42px; height: 42px; border-radius: 10px;
+    width: 38px; height: 38px; border-radius: 10px;
     background: linear-gradient(135deg, var(--accent), #9d6dff);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 19px; color: #fff;
+    font-weight: 800; font-size: 17px; color: #fff;
   }
-  h1 { font-size: 22px; font-weight: 650; }
-  .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  h1 { font-size: 18px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
   .badge {
     margin-left: auto; padding: 5px 12px; border-radius: 99px; font-size: 12.5px;
     border: 1px solid var(--border); color: var(--muted);
   }
   .badge.ok { color: var(--accent2); border-color: #1d4d3f; background: #12281f55; }
   .badge.bad { color: var(--danger); border-color: #552727; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .tabs {
+    flex: 0 0 auto;
+    display: flex; gap: 4px; padding: 12px 20px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tabs button {
+    background: transparent; border: none; color: var(--muted);
+    padding: 9px 14px 11px; border-radius: 8px 8px 0 0;
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tabs button:hover { color: var(--text); background: #171c2888; }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .content {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 18px 20px 32px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
   .card {
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 20px; margin-bottom: 16px;
+    padding: 18px 20px; margin-bottom: 14px;
   }
-  .card h2 { font-size: 15.5px; font-weight: 650; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 { font-size: 15px; font-weight: 650; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
   .card h2 .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--accent); display: inline-block; }
   .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .stat {
@@ -58,7 +82,7 @@
   .stat .k { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
   .stat .v { font-size: 16px; font-weight: 600; word-break: break-all; }
   .stat .v.small { font-size: 13px; font-weight: 500; }
-  input[type=text], input[type=password], input[type=number], select, textarea {
+  input[type=text], input[type=password], input[type=number], input[type=search], select, textarea {
     width: 100%; background: var(--panel2); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
     font-size: 14px; font-family: inherit; outline: none;
@@ -68,7 +92,6 @@
   button {
     background: var(--accent); border: none; color: #fff; padding: 9px 16px;
     border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: inherit;
-    transition: opacity .15s;
   }
   button:hover { opacity: .88; }
   button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
@@ -86,9 +109,10 @@
   }
   .code-wrap { position: relative; margin-top: 10px; }
   .copy-btn { position: absolute; top: 8px; right: 8px; }
+  .table-wrap { overflow: auto; max-height: calc(100vh - 260px); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--panel); }
   td.mono { font-family: Consolas, monospace; font-size: 12px; }
   .tag { padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
   .tag.ok { background: #12281f; color: var(--accent2); }
@@ -97,12 +121,19 @@
   .toast {
     position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
     background: #1c2333; border: 1px solid var(--border); color: var(--text);
-    padding: 10px 20px; border-radius: 10px; font-size: 13.5px; display: none; z-index: 99;
+    padding: 10px 20px; border-radius: 10px; font-size: 13.5px; display: none; z-index: 120;
   }
   .muted { color: var(--muted); }
   .spin { display: inline-block; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #visitor, #panel { display: none; }
+  #visitor, #panel {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #visitor .content, #panel .content { flex: 1; min-height: 0; }
   a { color: var(--accent); }
   .steps { counter-reset: s; list-style: none; }
   .steps li { counter-increment: s; padding: 6px 0 6px 34px; position: relative; font-size: 13.5px; color: var(--text); line-height: 1.6; }
@@ -112,10 +143,33 @@
     border: 1px solid var(--border); color: var(--accent);
     font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700;
   }
+  .overlay {
+    position: fixed; inset: 0; background: #07090ecc; display: none;
+    align-items: center; justify-content: center; z-index: 80; padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    width: min(560px, 100%); max-height: min(80vh, 720px);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    display: flex; flex-direction: column; box-shadow: 0 24px 80px #0008;
+  }
+  .modal h3 { font-size: 16px; padding: 16px 18px 8px; }
+  .modal .modal-body { padding: 0 18px 12px; overflow: auto; flex: 1; }
+  .modal .modal-foot {
+    padding: 12px 18px 16px; display: flex; gap: 8px; justify-content: flex-end;
+    border-top: 1px solid var(--border);
+  }
+  .model-list label {
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+    padding: 6px 4px; cursor: pointer; border-radius: 6px;
+  }
+  .model-list label:hover { background: var(--panel2); }
+  .model-list input { width: auto; accent-color: var(--accent); }
+  .model-list .alias { color: var(--muted); font-size: 11.5px; margin-left: auto; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
   <header>
     <div class="logo">CB</div>
     <div>
@@ -125,112 +179,157 @@
     <div class="badge" id="statusBadge">连接中...</div>
   </header>
 
-  <!-- 局域网访客视图 -->
   <div id="visitor">
-    <div class="card">
-      <h2><span class="dot"></span>接入方式</h2>
-      <p class="hint">这是一台 cursor-bridge 代理服务器。你需要向服务器管理员索取一个<b>访问令牌</b>（形如 <code>sk-cb-...</code>），然后按下面任一方式接入。管理配置仅限服务器本机操作。</p>
-      <div class="stat-row" style="margin-top:12px">
-        <div class="stat"><div class="k">Anthropic 兼容端点</div><div class="v small mono" id="vAnthropic"></div></div>
-        <div class="stat"><div class="k">OpenAI 兼容端点</div><div class="v small mono" id="vOpenai"></div></div>
+    <div class="content">
+      <div class="wrap">
+        <div class="card">
+          <h2><span class="dot"></span>接入方式</h2>
+          <p class="hint">这是一台 cursor-bridge 代理服务器。你需要向服务器管理员索取一个<b>访问令牌</b>（形如 <code>sk-cb-...</code>），然后按下面任一方式接入。管理配置仅限服务器本机操作。</p>
+          <div class="stat-row" style="margin-top:12px">
+            <div class="stat"><div class="k">Anthropic 兼容端点</div><div class="v small mono" id="vAnthropic"></div></div>
+            <div class="stat"><div class="k">OpenAI 兼容端点</div><div class="v small mono" id="vOpenai"></div></div>
+          </div>
+          <div id="visitorSnippets"></div>
+        </div>
       </div>
-      <div id="visitorSnippets"></div>
     </div>
   </div>
 
-  <!-- 管理员视图 -->
   <div id="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">概览</button>
+      <button data-tab="keys">访问令牌</button>
+      <button data-tab="models">模型</button>
+      <button data-tab="guide">接入</button>
+      <button data-tab="monitor">监控</button>
+    </nav>
+    <div class="content">
+      <div class="wrap">
+        <section class="tab-page active" data-page="overview">
+          <div class="card">
+            <h2><span class="dot"></span>运行状态</h2>
+            <div class="stat-row" id="statusCards"></div>
+          </div>
+          <div class="card">
+            <h2><span class="dot"></span>Cursor API Key</h2>
+            <div class="row">
+              <input type="password" id="cursorKeyInput" placeholder="crsr_... （在 cursor.com/dashboard → API Keys 生成）" style="flex:1;min-width:240px">
+              <button onclick="saveCursorKey()">保存并验证</button>
+              <button class="ghost" onclick="verifyKey()">测试当前 Key</button>
+              <button class="ghost" onclick="sdkLogin()">浏览器登录</button>
+              <button class="danger" onclick="clearCursorKey()">清除</button>
+            </div>
+            <div class="hint" id="keyStatus"></div>
+            <div class="row" style="margin-top:14px">
+              <select id="testModel" style="max-width:280px"></select>
+              <button class="ghost" onclick="testCall()" id="testBtn">发送测试请求</button>
+              <span class="hint" id="testResult" style="margin-top:0"></span>
+            </div>
+          </div>
+        </section>
 
-    <div class="card">
-      <h2><span class="dot"></span>运行状态</h2>
-      <div class="stat-row" id="statusCards"></div>
-    </div>
+        <section class="tab-page" data-page="keys">
+          <div class="card">
+            <h2><span class="dot"></span>访问令牌</h2>
+            <div class="row" style="margin-bottom:12px">
+              <input type="text" id="newKeyLabel" placeholder="备注，例如：小明的电脑" style="max-width:240px">
+              <button onclick="addKey()">生成新令牌</button>
+            </div>
+            <div class="table-wrap">
+              <table id="keysTable"><thead><tr><th>备注</th><th>令牌</th><th>可用模型</th><th>创建时间</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+            <p class="hint">每人一个令牌，滥用即删。点「可用模型」会弹出勾选框；不限制则该令牌能用全部模型。</p>
+          </div>
+        </section>
 
-    <div class="card">
-      <h2><span class="dot"></span>Cursor API Key</h2>
-      <div class="row">
-        <input type="password" id="cursorKeyInput" placeholder="crsr_... （在 cursor.com/dashboard → API Keys 生成）" style="flex:1;min-width:280px">
-        <button onclick="saveCursorKey()">保存并验证</button>
-        <button class="ghost" onclick="verifyKey()">测试当前 Key</button>
-        <button class="ghost" onclick="sdkLogin()">浏览器登录（免 Key）</button>
-        <button class="danger" onclick="clearCursorKey()">清除</button>
+        <section class="tab-page" data-page="models">
+          <div class="card">
+            <h2><span class="dot"></span>模型与行为</h2>
+            <div class="row">
+              <div style="flex:1;min-width:200px">
+                <div class="hint" style="margin:0 0 6px">默认模型（映射失败时兜底）</div>
+                <select id="defaultModel"></select>
+              </div>
+              <div style="flex:1;min-width:200px">
+                <div class="hint" style="margin:0 0 6px">桥接客户端工具</div>
+                <select id="allowTools"><option value="true">开启（推荐）</option><option value="false">关闭（纯对话）</option></select>
+              </div>
+              <div style="flex:1;min-width:200px">
+                <div class="hint" style="margin:0 0 6px">性能拉满</div>
+                <select id="maximize"><option value="true">开启（更耗额度）</option><option value="false">关闭（官方默认档）</option></select>
+              </div>
+              <div style="flex:1;min-width:140px">
+                <div class="hint" style="margin:0 0 6px">最大并发</div>
+                <input type="number" id="maxConcurrent" min="1" max="32">
+              </div>
+            </div>
+            <div class="row" style="margin-top:12px">
+              <div style="flex:1">
+                <div class="hint" style="margin:0 0 6px">手动模型映射（请求名 → Cursor 模型 id）</div>
+                <textarea id="overrides" spellcheck="false">{}</textarea>
+              </div>
+            </div>
+            <div class="row" style="margin-top:12px">
+              <button onclick="saveConfig()">保存配置</button>
+              <span class="hint" style="margin:0">未映射时按 精确匹配 → 关键词 → 默认模型 解析</span>
+            </div>
+          </div>
+          <div class="card">
+            <h2><span class="dot"></span>可用 Cursor 模型</h2>
+            <div class="table-wrap">
+              <table id="modelsTable"><thead><tr><th>模型 id</th><th>名称</th><th>别名</th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-page" data-page="guide">
+          <div class="card">
+            <h2><span class="dot"></span>接入指南</h2>
+            <div id="adminSnippets"></div>
+          </div>
+        </section>
+
+        <section class="tab-page" data-page="monitor">
+          <div class="card">
+            <h2><span class="dot"></span>用量统计</h2>
+            <div class="stat-row" id="usageTotals" style="margin-bottom:14px"></div>
+            <div class="table-wrap" style="max-height:280px">
+              <table id="usageTable"><thead><tr><th>令牌</th><th>合计消耗</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>最后使用</th></tr></thead><tbody></tbody></table>
+            </div>
+            <p class="hint" id="noUsage">暂无用量记录</p>
+            <div class="row" style="margin-top:10px">
+              <span class="hint" style="margin:0" id="usageSince"></span>
+              <button class="small danger" onclick="resetUsageStats()" style="margin-left:auto">清零重计</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2><span class="dot"></span>最近请求</h2>
+            <div class="table-wrap">
+              <table id="reqTable"><thead><tr><th>时间</th><th>协议</th><th>令牌</th><th>模型</th><th>状态</th><th>耗时</th><th>tokens</th></tr></thead><tbody></tbody></table>
+            </div>
+            <p class="hint" id="noReq">暂无请求记录</p>
+          </div>
+        </section>
       </div>
-      <div class="hint" id="keyStatus"></div>
-      <div class="row" style="margin-top:14px">
-        <select id="testModel" style="max-width:280px"></select>
-        <button class="ghost" onclick="testCall()" id="testBtn">发送测试请求</button>
-        <span class="hint" id="testResult" style="margin-top:0"></span>
-      </div>
     </div>
+  </div>
+</div>
 
-    <div class="card">
-      <h2><span class="dot"></span>访问令牌（发给局域网用户）</h2>
-      <table id="keysTable"><thead><tr><th>备注</th><th>令牌</th><th>创建时间</th><th></th></tr></thead><tbody></tbody></table>
-      <div class="row" style="margin-top:12px">
-        <input type="text" id="newKeyLabel" placeholder="备注，例如：小明的电脑" style="max-width:240px">
-        <button onclick="addKey()">生成新令牌</button>
-      </div>
-      <p class="hint">每人发一个令牌，谁滥用就删谁的。删除后立即失效。</p>
+<div class="overlay" id="modelModal" onclick="if(event.target===this) closeModelModal()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="modelModalTitle">限制可用模型</h3>
+    <div class="modal-body">
+      <p class="hint" id="modelModalHint" style="margin-top:0"></p>
+      <label class="hint" style="display:flex;align-items:center;gap:8px;margin:10px 0;cursor:pointer">
+        <input type="checkbox" id="keyUnlim" onchange="onKeyUnlimChange()" style="width:auto"> 不限制（全部模型）
+      </label>
+      <input type="search" id="modelSearch" placeholder="筛选模型 id / 名称" oninput="renderModelChecks()" style="margin-bottom:10px">
+      <div class="model-list" id="keyChecks"></div>
     </div>
-
-    <div class="card">
-      <h2><span class="dot"></span>模型与行为</h2>
-      <div class="row">
-        <div style="flex:1;min-width:220px">
-          <div class="hint" style="margin:0 0 6px">默认模型（映射失败时兜底）</div>
-          <select id="defaultModel"></select>
-        </div>
-        <div style="flex:1;min-width:220px">
-          <div class="hint" style="margin:0 0 6px">桥接客户端工具（Claude Code 需开启）</div>
-          <select id="allowTools"><option value="true">开启（推荐）</option><option value="false">关闭（纯对话）</option></select>
-        </div>
-        <div style="flex:1;min-width:220px">
-          <div class="hint" style="margin:0 0 6px">性能拉满（最高思考/最大上下文/尽量 fast）</div>
-          <select id="maximize"><option value="true">开启（更耗额度）</option><option value="false">关闭（用官方默认档）</option></select>
-        </div>
-        <div style="flex:1;min-width:160px">
-          <div class="hint" style="margin:0 0 6px">最大并发运行数</div>
-          <input type="number" id="maxConcurrent" min="1" max="32">
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <div style="flex:1">
-          <div class="hint" style="margin:0 0 6px">手动模型映射（请求模型名 → Cursor 模型 id，JSON）</div>
-          <textarea id="overrides" spellcheck="false">{}</textarea>
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <button onclick="saveConfig()">保存配置</button>
-        <span class="hint" style="margin:0">未映射的模型名会按 精确匹配 → 关键词（opus/sonnet/haiku/gpt...） → 默认模型 自动解析</span>
-      </div>
-      <details style="margin-top:14px">
-        <summary class="hint" style="cursor:pointer">查看可用 Cursor 模型列表</summary>
-        <table id="modelsTable" style="margin-top:8px"><thead><tr><th>模型 id</th><th>名称</th><th>别名</th></tr></thead><tbody></tbody></table>
-      </details>
+    <div class="modal-foot">
+      <button class="ghost" onclick="closeModelModal()">取消</button>
+      <button onclick="saveKeyModels()">保存</button>
     </div>
-
-    <div class="card">
-      <h2><span class="dot"></span>接入指南</h2>
-      <div id="adminSnippets"></div>
-    </div>
-
-    <div class="card">
-      <h2><span class="dot"></span>用量统计（按令牌累计，重启不丢失）</h2>
-      <div class="stat-row" id="usageTotals" style="margin-bottom:14px"></div>
-      <table id="usageTable"><thead><tr><th>令牌</th><th>合计消耗</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>最后使用</th></tr></thead><tbody></tbody></table>
-      <p class="hint" id="noUsage">暂无用量记录</p>
-      <div class="row" style="margin-top:10px">
-        <span class="hint" style="margin:0" id="usageSince"></span>
-        <button class="small danger" onclick="resetUsageStats()" style="margin-left:auto">清零重计</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2><span class="dot"></span>最近请求</h2>
-      <table id="reqTable"><thead><tr><th>时间</th><th>协议</th><th>令牌</th><th>模型</th><th>状态</th><th>耗时</th><th>tokens</th></tr></thead><tbody></tbody></table>
-      <p class="hint" id="noReq">暂无请求记录</p>
-    </div>
-
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -240,6 +339,10 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 let firstTokenCache = "sk-cb-********（在管理面板查看）";
 let statusCache = null;
+let keysCache = [];
+let modelsCache = [];
+let editingKeyIndex = -1;
+let editingSelected = new Set();
 
 function toast(msg) {
   const t = $("toast");
@@ -249,10 +352,21 @@ function toast(msg) {
   t._h = setTimeout(() => (t.style.display = "none"), 2600);
 }
 
+function apiError(r, fallback = "请求失败") {
+  if (typeof r?.error === "string" && r.error) return r.error;
+  if (typeof r?.error?.message === "string" && r.error.message) return r.error.message;
+  return fallback;
+}
+
 async function api(path, opts) {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
   if (res.status === 403) throw Object.assign(new Error("forbidden"), { forbidden: true });
-  return res.json();
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch { throw new Error(text.slice(0, 120) || `HTTP ${res.status}`); }
+  if (!res.ok && data && data.ok !== false) data.ok = false;
+  return data;
 }
 
 function copyText(text) {
@@ -282,13 +396,22 @@ function snippetsHtml(token) {
     <div class="code-wrap"><pre>${esc(ccJson)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(ccJson)})'>复制</button></div>
     <p class="hint"><b>方式二：直接改 Claude Code 配置</b>（写入 <code>~/.claude/settings.json</code>）</p>
     <div class="code-wrap"><pre>${esc(claudeJson)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(claudeJson)})'>复制</button></div>
-    <p class="hint"><b>方式三：OpenAI 兼容客户端</b>（Cherry Studio、NextChat、openai SDK 等）：Base URL 填 <code>${esc(base)}/v1</code>，API Key 填访问令牌，模型可填 <code>auto</code> 或任意 Cursor 模型 id</p>
+    <p class="hint"><b>方式三：OpenAI 兼容客户端</b>：Base URL 填 <code>${esc(base)}/v1</code>，API Key 填访问令牌</p>
     <div class="code-wrap"><pre>${esc(pyOpenai)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(pyOpenai)})'>复制</button></div>
     <p class="hint"><b>连通性测试</b></p>
     <div class="code-wrap"><pre>${esc(curlA)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(curlA)})'>复制</button></div>`;
 }
 
-/* ---------------- 管理员视图 ---------------- */
+function switchTab(id) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll(".tab-page").forEach((p) => p.classList.toggle("active", p.dataset.page === id));
+  location.hash = id;
+}
+
+document.getElementById("tabs")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (btn) switchTab(btn.dataset.tab);
+});
 
 function renderStatus(s) {
   statusCache = s;
@@ -311,7 +434,7 @@ function renderStatus(s) {
     <div class="stat"><div class="k">运行时长</div><div class="v small">${Math.floor(s.uptimeSec / 60)} 分钟</div></div>`;
   $("keyStatus").textContent = s.cursorKey.configured
     ? `当前 Key 来源：${s.cursorKey.source === "config" ? "面板配置" : s.cursorKey.source === "env" ? "环境变量 CURSOR_API_KEY" : "SDK 浏览器登录"}`
-    : "尚未配置。填入 Cursor API Key，或点击\u201c浏览器登录\u201d用 Cursor 账号授权（不需要手动生成 Key）。";
+    : "尚未配置。填入 Cursor API Key，或点击「浏览器登录」用 Cursor 账号授权。";
   $("allowTools").value = String(s.config.allowClientTools);
   $("maximize").value = String(s.config.maximizeModels ?? false);
   $("maxConcurrent").value = s.config.maxConcurrentRuns;
@@ -334,34 +457,116 @@ async function refreshModels(refresh) {
   try {
     const r = await api("/admin/models" + (refresh ? "?refresh=1" : ""));
     if (!r.ok) return;
-    const tbody = $("modelsTable").querySelector("tbody");
-    tbody.innerHTML = r.models.map((m) =>
+    $("modelsTable").querySelector("tbody").innerHTML = r.models.map((m) =>
       `<tr><td class="mono">${esc(m.id)}</td><td>${esc(m.displayName)}</td><td class="mono muted">${esc((m.aliases || []).join(", "))}</td></tr>`).join("");
+    modelsCache = r.models;
     const opts = ['<option value="auto">auto（服务端自动选择）</option>']
       .concat(r.models.filter((m) => m.id !== "auto").map((m) => `<option value="${esc(m.id)}">${esc(m.id)}</option>`)).join("");
     const dm = $("defaultModel"), tm = $("testModel");
     const cur = statusCache?.config?.defaultModel ?? "auto";
     dm.innerHTML = opts; dm.value = cur;
     tm.innerHTML = opts; tm.value = cur;
-  } catch { /* key 未配置时忽略 */ }
+  } catch { /* ignore */ }
 }
 
 async function refreshKeys() {
   try {
     const r = await api("/admin/keys");
-    const tbody = $("keysTable").querySelector("tbody");
-    if (r.keys.length > 0) firstTokenCache = r.keys[0].key;
-    tbody.innerHTML = r.keys.map((k) => `
-      <tr>
+    keysCache = r.keys || [];
+    if (keysCache.length > 0) firstTokenCache = keysCache[0].key;
+    $("keysTable").querySelector("tbody").innerHTML = keysCache.map((k, i) => {
+      const n = (k.allowedModels || []).length;
+      return `<tr>
         <td>${esc(k.label)}</td>
         <td class="mono">${esc(k.key.slice(0, 12))}...${esc(k.key.slice(-4))}
-          <button class="small ghost" onclick='copyText(${JSON.stringify(k.key)})'>复制完整令牌</button></td>
+          <button class="small ghost" onclick='copyText(${JSON.stringify(k.key)})'>复制</button></td>
+        <td><button class="small ghost" onclick="openModelModal(${i})">${n === 0 ? "不限制 · 设置" : n + " 个 · 设置"}</button></td>
         <td class="muted">${new Date(k.createdAt).toLocaleString()}</td>
         <td><button class="small danger" onclick='delKey(${JSON.stringify(k.key)})'>删除</button></td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
     $("adminSnippets").innerHTML = snippetsHtml(firstTokenCache);
   } catch { /* ignore */ }
 }
+
+function renderModelChecks() {
+  const q = ($("modelSearch").value || "").trim().toLowerCase();
+  const unlim = $("keyUnlim").checked;
+  const list = (modelsCache || []).filter((m) => {
+    if (!q) return true;
+    return m.id.toLowerCase().includes(q) || (m.displayName || "").toLowerCase().includes(q) || (m.aliases || []).some((a) => a.toLowerCase().includes(q));
+  });
+  $("keyChecks").innerHTML = list.map((m) => {
+    const on = editingSelected.has(m.id.toLowerCase());
+    return `<label><input type="checkbox" data-id value="${esc(m.id)}" ${on ? "checked" : ""} ${unlim ? "disabled" : ""} onchange="onModelCheck(this)">
+      <span class="mono">${esc(m.id)}</span>
+      <span class="alias">${esc(m.displayName || "")}</span></label>`;
+  }).join("") || `<span class="muted">${modelsCache.length ? "无匹配" : "暂无模型列表，请先在概览里配置 Cursor Key"}</span>`;
+}
+
+function onModelCheck(el) {
+  const id = el.value.toLowerCase();
+  if (el.checked) editingSelected.add(id);
+  else editingSelected.delete(id);
+}
+
+async function openModelModal(index) {
+  if (!modelsCache.length) await refreshModels();
+  const k = keysCache[index];
+  if (!k) return;
+  editingKeyIndex = index;
+  editingSelected = new Set((k.allowedModels || []).map((id) => id.toLowerCase()));
+  $("modelModalTitle").textContent = `限制模型 · ${k.label}`;
+  $("modelModalHint").textContent = "只勾选该令牌可以使用的 Cursor 模型。不限制时客户端能看到全部模型。";
+  $("modelSearch").value = "";
+  const unlimited = editingSelected.size === 0;
+  $("keyUnlim").checked = unlimited;
+  renderModelChecks();
+  $("modelModal").classList.add("show");
+  $("modelSearch").focus();
+}
+
+function closeModelModal() {
+  $("modelModal").classList.remove("show");
+  editingKeyIndex = -1;
+  editingSelected = new Set();
+}
+
+function onKeyUnlimChange() {
+  const unlim = $("keyUnlim").checked;
+  $("keyChecks").querySelectorAll("input[type=checkbox]").forEach((el) => { el.disabled = unlim; });
+}
+
+async function saveKeyModels() {
+  const k = keysCache[editingKeyIndex];
+  if (!k) return;
+  const allowedModels = $("keyUnlim").checked
+    ? []
+    : (modelsCache || []).filter((m) => editingSelected.has(m.id.toLowerCase())).map((m) => m.id);
+  if (!$("keyUnlim").checked && allowedModels.length === 0) {
+    toast("请至少勾选一个模型，或勾选「不限制」");
+    return;
+  }
+  try {
+    const r = await api("/admin/keys/" + encodeURIComponent(k.key), {
+      method: "PATCH",
+      body: JSON.stringify({ allowedModels }),
+    });
+    if (!r.ok) {
+      toast(apiError(r, "保存失败"));
+      return;
+    }
+    toast(allowedModels.length ? `已限制为 ${allowedModels.length} 个模型` : "已取消模型限制");
+    closeModelModal();
+    refreshKeys();
+  } catch (e) {
+    toast("保存失败：" + (e.message || e));
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("modelModal").classList.contains("show")) closeModelModal();
+});
 
 const fmtNum = (n) => (n >= 1e8 ? (n / 1e8).toFixed(2) + "亿" : n >= 1e4 ? (n / 1e4).toFixed(1) + "万" : String(n));
 
@@ -369,28 +574,24 @@ async function refreshUsage() {
   try {
     const r = await api("/admin/usage");
     if (!r.ok) return;
-    const tbody = $("usageTable").querySelector("tbody");
     $("noUsage").style.display = r.keys.length ? "none" : "block";
     $("usageSince").textContent = "统计自 " + new Date(r.since).toLocaleString();
     const t = r.keys.reduce(
       (a, k) => ({
-        req: a.req + k.requests,
-        inT: a.inT + k.inputTokens,
-        outT: a.outT + k.outputTokens,
-        cw: a.cw + k.cacheWriteTokens,
-        cr: a.cr + k.cacheReadTokens,
+        req: a.req + k.requests, inT: a.inT + k.inputTokens, outT: a.outT + k.outputTokens,
+        cw: a.cw + k.cacheWriteTokens, cr: a.cr + k.cacheReadTokens,
       }),
       { req: 0, inT: 0, outT: 0, cw: 0, cr: 0 },
     );
     const grand = t.inT + t.outT + t.cw + t.cr;
     $("usageTotals").innerHTML = `
-      <div class="stat"><div class="k">总消耗（全部令牌合计）</div><div class="v" title="${grand.toLocaleString()}" style="color:var(--accent2)">${fmtNum(grand)} tokens</div></div>
+      <div class="stat"><div class="k">总消耗</div><div class="v" title="${grand.toLocaleString()}" style="color:var(--accent2)">${fmtNum(grand)} tokens</div></div>
       <div class="stat"><div class="k">总请求数</div><div class="v">${t.req.toLocaleString()}</div></div>
-      <div class="stat"><div class="k">输入</div><div class="v" title="${t.inT.toLocaleString()}">${fmtNum(t.inT)}</div></div>
-      <div class="stat"><div class="k">输出</div><div class="v" title="${t.outT.toLocaleString()}">${fmtNum(t.outT)}</div></div>
-      <div class="stat"><div class="k">缓存写</div><div class="v" title="${t.cw.toLocaleString()}">${fmtNum(t.cw)}</div></div>
-      <div class="stat"><div class="k">缓存读</div><div class="v" title="${t.cr.toLocaleString()}">${fmtNum(t.cr)}</div></div>`;
-    tbody.innerHTML = r.keys.map((k) => {
+      <div class="stat"><div class="k">输入</div><div class="v">${fmtNum(t.inT)}</div></div>
+      <div class="stat"><div class="k">输出</div><div class="v">${fmtNum(t.outT)}</div></div>
+      <div class="stat"><div class="k">缓存写</div><div class="v">${fmtNum(t.cw)}</div></div>
+      <div class="stat"><div class="k">缓存读</div><div class="v">${fmtNum(t.cr)}</div></div>`;
+    $("usageTable").querySelector("tbody").innerHTML = r.keys.map((k) => {
       const total = k.inputTokens + k.outputTokens + k.cacheWriteTokens + k.cacheReadTokens;
       const models = Object.entries(k.models)
         .sort((a, b) => b[1].inputTokens + b[1].outputTokens - (a[1].inputTokens + a[1].outputTokens))
@@ -398,12 +599,12 @@ async function refreshUsage() {
         .join("<br>");
       return `<tr>
         <td><details><summary style="cursor:pointer">${esc(k.label)}</summary><div class="muted" style="font-size:11.5px;line-height:1.8;padding-top:4px">${models}</div></details></td>
-        <td title="${total.toLocaleString()} tokens"><b style="color:var(--accent2);font-size:14px">${fmtNum(total)}</b></td>
-        <td title="成功 ${k.ok} / 工具 ${k.toolUse} / 错误 ${k.errors}">${k.requests}</td>
-        <td title="${k.inputTokens.toLocaleString()}">${fmtNum(k.inputTokens)}</td>
-        <td title="${k.outputTokens.toLocaleString()}">${fmtNum(k.outputTokens)}</td>
-        <td title="${k.cacheWriteTokens.toLocaleString()}">${fmtNum(k.cacheWriteTokens)}</td>
-        <td title="${k.cacheReadTokens.toLocaleString()}">${fmtNum(k.cacheReadTokens)}</td>
+        <td title="${total.toLocaleString()} tokens"><b style="color:var(--accent2)">${fmtNum(total)}</b></td>
+        <td>${k.requests}</td>
+        <td>${fmtNum(k.inputTokens)}</td>
+        <td>${fmtNum(k.outputTokens)}</td>
+        <td>${fmtNum(k.cacheWriteTokens)}</td>
+        <td>${fmtNum(k.cacheReadTokens)}</td>
         <td class="muted">${new Date(k.lastUsed).toLocaleString()}</td>
       </tr>`;
     }).join("");
@@ -420,9 +621,8 @@ async function resetUsageStats() {
 async function refreshRequests() {
   try {
     const r = await api("/admin/requests");
-    const tbody = $("reqTable").querySelector("tbody");
     $("noReq").style.display = r.requests.length ? "none" : "block";
-    tbody.innerHTML = r.requests.slice(0, 40).map((q) => {
+    $("reqTable").querySelector("tbody").innerHTML = r.requests.slice(0, 40).map((q) => {
       const tag = q.status === "ok" ? "ok" : q.status === "tool_use" ? "tool" : "err";
       const label = q.status === "ok" ? "完成" : q.status === "tool_use" ? "工具调用" : "错误";
       return `<tr>
@@ -514,10 +714,8 @@ async function saveConfig() {
   refreshStatus();
 }
 
-/* ---------------- 访客视图 ---------------- */
-
 function showVisitor() {
-  $("visitor").style.display = "block";
+  $("visitor").style.display = "flex";
   $("panel").style.display = "none";
   $("statusBadge").textContent = "访客模式";
   $("statusBadge").className = "badge";
@@ -526,14 +724,14 @@ function showVisitor() {
   $("visitorSnippets").innerHTML = snippetsHtml("<向管理员索取的访问令牌>");
 }
 
-/* ---------------- 启动 ---------------- */
-
 (async () => {
   try {
     await api("/admin/status");
-    $("panel").style.display = "block";
+    $("panel").style.display = "flex";
     await refreshStatus();
     await Promise.all([refreshKeys(), refreshModels(), refreshRequests(), refreshUsage()]);
+    const hash = location.hash.replace("#", "");
+    if (["overview", "keys", "models", "guide", "monitor"].includes(hash)) switchTab(hash);
     setInterval(refreshStatus, 5000);
     setInterval(refreshRequests, 5000);
     setInterval(refreshUsage, 10000);

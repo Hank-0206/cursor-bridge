@@ -8,6 +8,11 @@ export interface ProxyKey {
   key: string;
   label: string;
   createdAt: string;
+  /**
+   * 该令牌允许使用的 Cursor 模型 id（精确匹配解析后的 id）。
+   * 缺省或空数组表示不限制。
+   */
+  allowedModels?: string[];
 }
 
 export interface AppConfig {
@@ -56,12 +61,21 @@ const configPath = path.join(dataDir, "config.json");
 
 let config: AppConfig | null = null;
 
-export function generateProxyKey(label: string): ProxyKey {
-  return {
+export function normalizeAllowedModels(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const ids = [...new Set(raw.map((s) => String(s).trim()).filter(Boolean))];
+  return ids.length > 0 ? ids : undefined;
+}
+
+export function generateProxyKey(label: string, allowedModels?: string[]): ProxyKey {
+  const pk: ProxyKey = {
     key: `sk-cb-${randomBytes(24).toString("hex")}`,
     label,
     createdAt: new Date().toISOString(),
   };
+  const allowed = normalizeAllowedModels(allowedModels);
+  if (allowed) pk.allowedModels = allowed;
+  return pk;
 }
 
 export function loadConfig(): AppConfig {
@@ -76,6 +90,12 @@ export function loadConfig(): AppConfig {
     }
   }
   config = { ...DEFAULTS, ...loaded };
+  config.proxyKeys = config.proxyKeys.map((k) => {
+    const allowedModels = normalizeAllowedModels(k.allowedModels);
+    const next: ProxyKey = { key: k.key, label: k.label, createdAt: k.createdAt };
+    if (allowedModels) next.allowedModels = allowedModels;
+    return next;
+  });
   if (config.proxyKeys.length === 0) {
     config.proxyKeys.push(generateProxyKey("default"));
   }
@@ -115,4 +135,10 @@ export function effectiveCursorKey(): { key: string | undefined; source: CursorK
 export function maskKey(key: string): string {
   if (key.length <= 10) return "***";
   return `${key.slice(0, 8)}...${key.slice(-4)}`;
+}
+
+/** 空或缺省 = 不限制；否则返回小写 id 集合。 */
+export function allowedModelSet(allowedModels?: string[]): Set<string> | null {
+  const ids = normalizeAllowedModels(allowedModels);
+  return ids ? new Set(ids.map((id) => id.toLowerCase())) : null;
 }

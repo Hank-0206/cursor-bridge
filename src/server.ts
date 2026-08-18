@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { adminRouter, lanAddresses } from "./admin.js";
 import { handleAnthropicMessages, handleCountTokens } from "./anthropic.js";
-import { requireApiKey, requireLoopback } from "./auth.js";
+import { requireApiKey, requireLoopback, type AuthedRequest } from "./auth.js";
 import { effectiveCursorKey, getConfig, loadConfig, maskKey } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
@@ -39,8 +39,6 @@ app.get("/healthz", (_req, res) => {
 /* ---------------- 对外 API（需访问令牌） ---------------- */
 
 app.use("/v1", requireApiKey);
-
-type AuthedRequest = Request & { proxyKeyLabel?: string };
 
 app.post("/v1/messages", (req, res) => {
   void handleAnthropicMessages(req, res, (req as AuthedRequest).proxyKeyLabel ?? "unknown").catch((err) => {

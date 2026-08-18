@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
+import { type AuthedRequest } from "./auth.js";
 import { executeBridgeRequest, type RequestMeta } from "./engine.js";
 import {
   BridgeError,
@@ -194,6 +195,7 @@ function safeParse(v: unknown): unknown {
 
 const ERROR_STATUS: Record<BridgeError["kind"], { status: number; code: string }> = {
   auth: { status: 401, code: "invalid_api_key" },
+  forbidden: { status: 403, code: "model_not_allowed" },
   rate_limit: { status: 429, code: "rate_limit_exceeded" },
   invalid_request: { status: 400, code: "invalid_request_error" },
   overloaded: { status: 503, code: "server_error" },
@@ -522,7 +524,12 @@ export async function handleResponses(req: Request, res: Response, keyLabel: str
     return;
   }
   const stream = Boolean(body.stream);
-  const meta: RequestMeta = { api: "responses", keyLabel, stream };
+  const meta: RequestMeta = {
+    api: "responses",
+    keyLabel,
+    stream,
+    allowedModels: (req as AuthedRequest).proxyKey?.allowedModels,
+  };
   const sink: Sink = stream
     ? new ResponsesStreamSink(res, bridgeReq.requestedModel)
     : new ResponsesJsonSink(res, bridgeReq.requestedModel);

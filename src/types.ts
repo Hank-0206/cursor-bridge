@@ -83,6 +83,7 @@ export interface Sink {
 
 export type BridgeErrorKind =
   | "auth"
+  | "forbidden"
   | "rate_limit"
   | "invalid_request"
   | "overloaded"

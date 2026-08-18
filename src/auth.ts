@@ -10,6 +10,8 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(digest(a), digest(b));
 }
 
+export type AuthedRequest = Request & { proxyKeyLabel?: string; proxyKey?: ProxyKey };
+
 export function extractToken(req: Request): string {
   const xApiKey = req.headers["x-api-key"];
   if (typeof xApiKey === "string" && xApiKey.trim()) return xApiKey.trim();
@@ -33,7 +35,9 @@ export function requireApiKey(req: Request, res: Response, next: NextFunction): 
   const token = extractToken(req);
   const pk = verifyProxyKey(token);
   if (pk) {
-    (req as Request & { proxyKeyLabel?: string }).proxyKeyLabel = pk.label;
+    const authed = req as AuthedRequest;
+    authed.proxyKeyLabel = pk.label;
+    authed.proxyKey = pk;
     next();
     return;
   }

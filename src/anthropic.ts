@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
+import { type AuthedRequest } from "./auth.js";
 import { executeBridgeRequest, type RequestMeta } from "./engine.js";
 import {
   BridgeError,
@@ -137,6 +138,7 @@ export function parseAnthropicRequest(body: Record<string, unknown>): BridgeRequ
 
 const ERROR_TYPE: Record<BridgeError["kind"], { status: number; type: string }> = {
   auth: { status: 401, type: "authentication_error" },
+  forbidden: { status: 403, type: "permission_error" },
   rate_limit: { status: 429, type: "rate_limit_error" },
   invalid_request: { status: 400, type: "invalid_request_error" },
   overloaded: { status: 529, type: "overloaded_error" },
@@ -371,7 +373,12 @@ export async function handleAnthropicMessages(req: Request, res: Response, keyLa
     return;
   }
   const stream = Boolean((req.body as Record<string, unknown>).stream);
-  const meta: RequestMeta = { api: "anthropic", keyLabel, stream };
+  const meta: RequestMeta = {
+    api: "anthropic",
+    keyLabel,
+    stream,
+    allowedModels: (req as AuthedRequest).proxyKey?.allowedModels,
+  };
   const sink: Sink = stream
     ? new AnthropicStreamSink(res, bridgeReq.requestedModel, estimateRequestTokens(bridgeReq))
     : new AnthropicJsonSink(res, bridgeReq.requestedModel);

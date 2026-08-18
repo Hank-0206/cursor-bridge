@@ -11,7 +11,7 @@ import {
 } from "@cursor/sdk";
 import { effectiveCursorKey, getConfig, sandboxDir } from "./config.js";
 import { info, logRequest, warn } from "./log.js";
-import { resolveModel } from "./models.js";
+import { resolveModelForKey } from "./models.js";
 import { renderPrompt } from "./prompt.js";
 import {
   BridgeError,
@@ -84,6 +84,7 @@ export interface RequestMeta {
   api: "anthropic" | "openai" | "responses" | "test";
   keyLabel: string;
   stream: boolean;
+  allowedModels?: string[];
 }
 
 class Session {
@@ -425,7 +426,7 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
   session.requestedModel = req.requestedModel;
 
   try {
-    const resolved = await resolveModel(req.requestedModel);
+    const resolved = await resolveModelForKey(req.requestedModel, meta.allowedModels);
     session.cursorModel = resolved.id;
     session.modelLabel = resolved.label;
 
@@ -479,7 +480,9 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
     session.run = run;
     void consumeRun(session, run);
   } catch (err) {
-    session.failResponse(toBridgeError(err));
+    const be = toBridgeError(err);
+    if (session.response) session.failResponse(be);
+    else sink.error(be);
     await abortSession(session, "启动失败");
   }
 }
