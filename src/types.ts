@@ -47,6 +47,8 @@ export interface BridgeRequest {
   tools: BridgeTool[];
   maxTokens?: number;
   stopSequences: string[];
+  /** 当前请求是正常回复还是上下文压缩。 */
+  operation?: "reply" | "compact";
 }
 
 export type StopReason =
@@ -60,7 +62,7 @@ export interface BridgeUsage {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  /** true 表示 token 数是估算值（后端没有上报真实用量）。 */
+  /** true 表示 token 数是按当前请求内容估算的实时上下文用量。 */
   estimated: boolean;
 }
 
@@ -111,4 +113,25 @@ export function estimateRequestTokens(req: BridgeRequest): number {
   }
   total += estimateTokens(JSON.stringify(req.tools));
   return total;
+}
+
+/**
+ * 构造当前一次客户端请求的实时上下文用量。
+ *
+ * Cursor SDK 在同一个工具运行中上报的是跨轮次累计计费用量，不能直接作为
+ * OpenAI/Anthropic 响应里的当前上下文长度，否则依赖 total_tokens 自动压缩的
+ * 客户端会在压缩后仍误判为满窗。
+ */
+export function buildLiveContextUsage(
+  inputTokens: number,
+  emittedTextChars: number,
+  emittedToolTokens: number,
+): BridgeUsage {
+  return {
+    inputTokens,
+    outputTokens: Math.ceil(emittedTextChars / 4) + emittedToolTokens,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    estimated: true,
+  };
 }

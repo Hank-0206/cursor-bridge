@@ -7,7 +7,7 @@ import { requireApiKey, requireLoopback, type AuthedRequest } from "./auth.js";
 import { effectiveCursorKey, getConfig, loadConfig, maskKey } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
-import { handleResponses } from "./responses.js";
+import { handleResponses, handleResponsesCompact } from "./responses.js";
 import { flushUsage } from "./usage.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -61,6 +61,13 @@ app.post("/v1/chat/completions", (req, res) => {
 app.post("/v1/responses", (req, res) => {
   void handleResponses(req, res, (req as AuthedRequest).proxyKeyLabel ?? "unknown").catch((err) => {
     warn(`处理 /v1/responses 时未捕获错误: ${err}`);
+    if (!res.headersSent) res.status(500).json({ error: { message: String(err), type: "server_error" } });
+  });
+});
+
+app.post("/v1/responses/compact", (req, res) => {
+  void handleResponsesCompact(req, res, (req as AuthedRequest).proxyKeyLabel ?? "unknown").catch((err) => {
+    warn(`处理 /v1/responses/compact 时未捕获错误: ${err}`);
     if (!res.headersSent) res.status(500).json({ error: { message: String(err), type: "server_error" } });
   });
 });

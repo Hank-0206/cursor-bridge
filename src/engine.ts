@@ -7,7 +7,6 @@ import {
   type SDKCustomTool,
   type SDKCustomToolContent,
   type SDKCustomToolResult,
-  type TokenUsage,
 } from "@cursor/sdk";
 import { effectiveCursorKey, getConfig, sandboxDir } from "./config.js";
 import { info, logRequest, warn } from "./log.js";
@@ -15,6 +14,7 @@ import { resolveModelForKey } from "./models.js";
 import { renderPrompt } from "./prompt.js";
 import {
   BridgeError,
+  buildLiveContextUsage,
   estimateRequestTokens,
   estimateTokens,
   type BridgeRequest,
@@ -73,6 +73,7 @@ interface ResponseCtx {
   maxTokens?: number;
   stopSequences: string[];
   emittedChars: number;
+  emittedToolTokens: number;
   tail: string;
   inputTokensEstimate: number;
   startedAt: number;
@@ -98,7 +99,6 @@ class Session {
   holdsSlot = false;
   closed = false;
   lastActivity = Date.now();
-  usage: TokenUsage | null = null;
   pending = new Map<string, PendingTool>();
   batch: BridgeToolCall[] = [];
   private batchTimer: NodeJS.Timeout | null = null;
@@ -170,6 +170,9 @@ class Session {
       this.buffer.push({ type: "toolCalls", calls });
       return;
     }
+    for (const call of calls) {
+      ctx.emittedToolTokens += estimateTokens(call.name + JSON.stringify(call.input ?? {}));
+    }
     ctx.sink.toolCalls(calls);
     this.finishResponse("tool_use");
   }
@@ -221,22 +224,7 @@ class Session {
   }
 
   private buildUsage(ctx: ResponseCtx): BridgeUsage {
-    if (this.usage) {
-      return {
-        inputTokens: this.usage.inputTokens,
-        outputTokens: this.usage.outputTokens,
-        cacheReadTokens: this.usage.cacheReadTokens,
-        cacheWriteTokens: this.usage.cacheWriteTokens,
-        estimated: false,
-      };
-    }
-    return {
-      inputTokens: ctx.inputTokensEstimate,
-      outputTokens: Math.ceil(ctx.emittedChars / 4),
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      estimated: true,
-    };
+    return buildLiveContextUsage(ctx.inputTokensEstimate, ctx.emittedChars, ctx.emittedToolTokens);
   }
 
   /** 模型通过 customTools 发起调用时进入这里；返回的 Promise 在客户端回传结果后才 resolve。 */
@@ -406,6 +394,7 @@ function resumeSession(
     maxTokens: req.maxTokens,
     stopSequences: req.stopSequences,
     emittedChars: 0,
+    emittedToolTokens: 0,
     tail: "",
     inputTokensEstimate: estimateRequestTokens(req),
     startedAt: Date.now(),
@@ -439,6 +428,7 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
       maxTokens: req.maxTokens,
       stopSequences: req.stopSequences,
       emittedChars: 0,
+      emittedToolTokens: 0,
       tail: "",
       inputTokensEstimate: estimateRequestTokens(req),
       startedAt: Date.now(),
@@ -495,16 +485,17 @@ async function consumeRun(session: Session, run: Run): Promise<void> {
         for (const block of event.message.content) {
           if (block.type === "text" && block.text) session.emitText(block.text);
         }
-      } else if (event.type === "usage") {
-        session.usage = event.usage;
-        session.lastActivity = Date.now();
-      } else if (event.type === "status" || event.type === "thinking" || event.type === "tool_call") {
+      } else if (
+        event.type === "usage" ||
+        event.type === "status" ||
+        event.type === "thinking" ||
+        event.type === "tool_call"
+      ) {
         session.lastActivity = Date.now();
       }
     }
     if (session.closed) return;
     const result = await run.wait();
-    if (result.usage) session.usage = result.usage;
     if (result.status === "finished") {
       session.finishResponse("end_turn");
     } else if (result.status === "cancelled") {

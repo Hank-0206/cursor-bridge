@@ -1,4 +1,5 @@
-import { randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import type { Request, Response } from "express";
 import { type AuthedRequest } from "./auth.js";
 import { executeBridgeRequest, type RequestMeta } from "./engine.js";
@@ -35,6 +36,42 @@ export function lastResponsesRequest(): { ts: string; body: unknown } | null {
 /* ------------------------------------------------------------------ */
 
 const DATA_URL_RE = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i;
+const COMPACTION_PREFIX = "cb1.";
+const COMPACTION_MAX_BYTES = 8 * 1024 * 1024;
+
+/** 使用当前访问令牌加密压缩摘要，供 Codex 作为不透明 compaction item 保存。 */
+export function encodeBridgeCompaction(summary: string, secret: string): string {
+  if (!secret) throw new BridgeError("auth", "缺少用于加密压缩上下文的访问令牌");
+  const nonce = randomBytes(12);
+  const key = createHash("sha256").update(secret).digest();
+  const cipher = createCipheriv("aes-256-gcm", key, nonce);
+  const compressed = deflateRawSync(Buffer.from(summary, "utf8"));
+  const encrypted = Buffer.concat([cipher.update(compressed), cipher.final()]);
+  const payload = Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url");
+  return COMPACTION_PREFIX + payload;
+}
+
+/** 解密由本代理生成的 Codex compaction item。 */
+export function decodeBridgeCompaction(encryptedContent: string, secret: string): string {
+  if (!encryptedContent.startsWith(COMPACTION_PREFIX)) {
+    throw new BridgeError("invalid_request", "无法读取非本代理生成的压缩上下文，请新建 Codex 对话");
+  }
+  if (!secret) throw new BridgeError("auth", "缺少用于解密压缩上下文的访问令牌");
+  try {
+    const payload = Buffer.from(encryptedContent.slice(COMPACTION_PREFIX.length), "base64url");
+    if (payload.length < 29) throw new Error("压缩数据长度不足");
+    const nonce = payload.subarray(0, 12);
+    const tag = payload.subarray(12, 28);
+    const encrypted = payload.subarray(28);
+    const key = createHash("sha256").update(secret).digest();
+    const decipher = createDecipheriv("aes-256-gcm", key, nonce);
+    decipher.setAuthTag(tag);
+    const compressed = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return inflateRawSync(compressed, { maxOutputLength: COMPACTION_MAX_BYTES }).toString("utf8");
+  } catch {
+    throw new BridgeError("invalid_request", "压缩上下文已损坏或访问令牌已变更，请新建 Codex 对话");
+  }
+}
 
 function partsToText(content: unknown): { text: string; images: BridgeImage[] } {
   if (typeof content === "string") return { text: content, images: [] };
@@ -68,7 +105,7 @@ function outputToText(output: unknown): string {
   return JSON.stringify(output ?? "");
 }
 
-export function parseResponsesRequest(body: Record<string, unknown>): BridgeRequest {
+export function parseResponsesRequest(body: Record<string, unknown>, compactionSecret = ""): BridgeRequest {
   const model = typeof body.model === "string" ? body.model : "";
   if (!model) throw new BridgeError("invalid_request", "缺少 model 字段");
 
@@ -130,6 +167,19 @@ export function parseResponsesRequest(body: Record<string, unknown>): BridgeRequ
         case "function_call_output":
         case "custom_tool_call_output": {
           pushToolResult(String(raw.call_id ?? ""), outputToText(raw.output), false);
+          break;
+        }
+        case "compaction": {
+          const encryptedContent = typeof raw.encrypted_content === "string" ? raw.encrypted_content : "";
+          if (!encryptedContent) throw new BridgeError("invalid_request", "compaction item 缺少 encrypted_content");
+          const summary = decodeBridgeCompaction(encryptedContent, compactionSecret);
+          messages.push({
+            role: "assistant",
+            text: `<context_summary>\n${summary}\n</context_summary>`,
+            images: [],
+            toolCalls: [],
+            toolResults: [],
+          });
           break;
         }
         case "reasoning":
@@ -213,13 +263,16 @@ export function responsesErrorBody(err: BridgeError): { status: number; body: un
 
 type OutputItem = Record<string, unknown>;
 
-function usageJson(u: BridgeUsage): Record<string, unknown> {
+/** 构造 Responses API 用量，并携带 Grok Build 识别的实时上下文字段。 */
+export function responsesUsageJson(u: BridgeUsage): Record<string, unknown> {
   return {
     input_tokens: u.inputTokens,
     input_tokens_details: { cached_tokens: u.cacheReadTokens },
     output_tokens: u.outputTokens,
     output_tokens_details: { reasoning_tokens: 0 },
     total_tokens: u.inputTokens + u.outputTokens,
+    // Grok Build 优先用这个字段识别模型当前真实上下文，避免把累计计费用量当成窗口占用。
+    context_details: { input_tokens: u.inputTokens, output_tokens: u.outputTokens },
   };
 }
 
@@ -254,7 +307,7 @@ function buildResponse(
     tools: [],
     top_p: 1,
     truncation: "disabled",
-    usage: usage ? usageJson(usage) : null,
+    usage: usage ? responsesUsageJson(usage) : null,
     user: null,
     metadata: {},
   };
@@ -275,6 +328,51 @@ function msgId(): string {
 }
 function fcId(): string {
   return `fc_cb${randomBytes(16).toString("hex")}`;
+}
+function cmpId(): string {
+  return `cmp_cb${randomBytes(16).toString("hex")}`;
+}
+
+/** 按官方格式保留压缩输入中的用户消息。 */
+function compactedUserItems(input: unknown): OutputItem[] {
+  if (typeof input === "string") {
+    return [{
+      id: msgId(),
+      type: "message",
+      status: "completed",
+      role: "user",
+      content: [{ type: "input_text", text: input }],
+    }];
+  }
+  if (!Array.isArray(input)) return [];
+  return (input as Array<Record<string, unknown>>)
+    .filter((item) => (item.type === undefined || item.type === "message") && item.role === "user")
+    .map((item) => ({
+      ...item,
+      id: typeof item.id === "string" && item.id ? item.id : msgId(),
+      type: "message",
+      status: "completed",
+      role: "user",
+    }));
+}
+
+/** 构造 Codex / Responses API 兼容的压缩响应对象。 */
+export function buildCompactedResponse(
+  input: unknown,
+  summary: string,
+  secret: string,
+  usage: BridgeUsage,
+): Record<string, unknown> {
+  return {
+    id: respId(),
+    object: "response.compaction",
+    created_at: Math.floor(Date.now() / 1000),
+    output: [
+      ...compactedUserItems(input),
+      { id: cmpId(), type: "compaction", encrypted_content: encodeBridgeCompaction(summary, secret) },
+    ],
+    usage: responsesUsageJson(usage),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -506,6 +604,64 @@ class ResponsesJsonSink implements Sink {
   }
 }
 
+/** 收集 Cursor 模型生成的摘要并返回 Responses compaction 对象。 */
+class ResponsesCompactSink implements Sink {
+  private text = "";
+  private failure: BridgeError | null = null;
+  private done = false;
+  private closed = false;
+
+  constructor(
+    private res: Response,
+    private input: unknown,
+    private secret: string,
+  ) {
+    res.on("close", () => {
+      this.closed = true;
+    });
+  }
+
+  start(_cursorModel: string): void {}
+
+  textDelta(text: string): void {
+    this.text += text;
+  }
+
+  toolCalls(_calls: BridgeToolCall[]): void {
+    this.failure = new BridgeError("api", "上下文压缩期间模型意外发起了工具调用");
+  }
+
+  finish(reason: StopReason, usage: BridgeUsage): void {
+    if (this.done || this.closed) return;
+    if (this.failure) {
+      this.error(this.failure);
+      return;
+    }
+    if (reason === "max_tokens") {
+      this.error(new BridgeError("api", "上下文压缩摘要超过最大长度"));
+      return;
+    }
+    const summary = this.text.trim();
+    if (!summary) {
+      this.error(new BridgeError("api", "上游没有生成有效的上下文压缩摘要"));
+      return;
+    }
+    this.done = true;
+    this.res.status(200).json(buildCompactedResponse(this.input, summary, this.secret, usage));
+  }
+
+  error(err: BridgeError): void {
+    if (this.done || this.closed) return;
+    this.done = true;
+    const { status, body } = responsesErrorBody(err);
+    this.res.status(status).json(body);
+  }
+
+  isClosed(): boolean {
+    return this.closed;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* 路由处理                                                             */
 /* ------------------------------------------------------------------ */
@@ -515,7 +671,7 @@ export async function handleResponses(req: Request, res: Response, keyLabel: str
   lastRawRequest = { ts: new Date().toISOString(), body };
   let bridgeReq: BridgeRequest;
   try {
-    bridgeReq = parseResponsesRequest(body);
+    bridgeReq = parseResponsesRequest(body, (req as AuthedRequest).proxyKey?.key ?? "");
   } catch (err) {
     const { status, body: eb } = responsesErrorBody(
       err instanceof BridgeError ? err : new BridgeError("invalid_request", String(err)),
@@ -534,5 +690,35 @@ export async function handleResponses(req: Request, res: Response, keyLabel: str
     ? new ResponsesStreamSink(res, bridgeReq.requestedModel)
     : new ResponsesJsonSink(res, bridgeReq.requestedModel);
   void estimateRequestTokens; // 估算在引擎内完成
+  await executeBridgeRequest(bridgeReq, sink, meta);
+}
+
+/** 处理 Codex 调用的 Responses 上下文压缩端点。 */
+export async function handleResponsesCompact(req: Request, res: Response, keyLabel: string): Promise<void> {
+  const body = req.body as Record<string, unknown>;
+  lastRawRequest = { ts: new Date().toISOString(), body };
+  const secret = (req as AuthedRequest).proxyKey?.key ?? "";
+  let bridgeReq: BridgeRequest;
+  try {
+    bridgeReq = parseResponsesRequest(body, secret);
+  } catch (err) {
+    const { status, body: eb } = responsesErrorBody(
+      err instanceof BridgeError ? err : new BridgeError("invalid_request", String(err)),
+    );
+    res.status(status).json(eb);
+    return;
+  }
+
+  bridgeReq.operation = "compact";
+  bridgeReq.tools = [];
+  bridgeReq.stopSequences = [];
+  bridgeReq.maxTokens = 16_384;
+  const meta: RequestMeta = {
+    api: "responses",
+    keyLabel,
+    stream: false,
+    allowedModels: (req as AuthedRequest).proxyKey?.allowedModels,
+  };
+  const sink: Sink = new ResponsesCompactSink(res, body.input, secret);
   await executeBridgeRequest(bridgeReq, sink, meta);
 }

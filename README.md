@@ -59,6 +59,7 @@ $env:PORT='8319'; npm start
 | `POST` | `/v1/messages/count_tokens` | Anthropic | 估算 token |
 | `POST` | `/v1/chat/completions` | OpenAI Chat Completions | Cherry Studio、openai SDK |
 | `POST` | `/v1/responses` | OpenAI Responses | Codex CLI / Codex Desktop |
+| `POST` | `/v1/responses/compact` | OpenAI Responses Compaction | Codex 长对话压缩 |
 | `GET` | `/v1/models` | OpenAI | 列出可映射模型 |
 | `GET` | `/healthz` | — | 健康检查（无需令牌） |
 
@@ -140,6 +141,9 @@ $env:CURSOR_BRIDGE_API_KEY = "sk-cb-你的访问令牌"
 curl.exe -sN -X POST http://127.0.0.1:8318/v1/responses -H "content-type: application/json" -H "x-api-key: <令牌>" --data "@test/resp-stream.json"
 ```
 
+代理同时实现 Codex 长对话使用的 `/v1/responses/compact`。压缩摘要会使用当前访问令牌
+加密为不透明 `compaction` item；后续请求回传该 item 时由代理解密并作为精简后的会话状态继续使用。
+
 ## 局域网访问与防火墙
 
 - 默认监听 `0.0.0.0:8318`，同一局域网内的设备用 `http://<你的IP>:8318` 访问（启动横幅和面板里都会显示检测到的 IP）。
@@ -191,7 +195,10 @@ Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端
 
 面板「用量统计」按访问令牌累计请求数、输入 / 输出 / 缓存读写 token，数据写在 `data/usage.json`，**重启不丢失**。可按令牌展开看各模型消耗，也可一键清零重计。
 
-后端未上报真实用量时按约 4 字符 = 1 token 估算。
+对外 API 响应里的 `usage` 表示当前请求实际携带的实时上下文，而不是 Cursor SDK
+在连续工具调用期间产生的累计计费用量。Grok Build 等依赖 `total_tokens` 触发自动压缩的
+客户端因此能在压缩完成后看到窗口占用确实下降，不会每一轮重复压缩。实时上下文用量
+按约 4 字符 = 1 token 估算。
 
 ## 配置文件
 
