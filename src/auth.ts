@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { getConfig, type ProxyKey } from "./config.js";
+import { hasValidSession } from "./session.js";
 
 function digest(s: string): Buffer {
   return createHash("sha256").update(s).digest();
@@ -54,6 +55,20 @@ export function requireApiKey(req: Request, res: Response, next: NextFunction): 
 export function isLoopback(req: Request): boolean {
   const addr = req.socket.remoteAddress ?? "";
   return addr === "127.0.0.1" || addr === "::1" || addr.startsWith("::ffff:127.");
+}
+
+export function verifyAdminCredentials(username: string, password: string): boolean {
+  const config = getConfig();
+  return safeEqual(username, config.adminUsername) && safeEqual(password, config.adminPassword);
+}
+
+/** 管理接口需先用 data/config.json 里的账号密码登录。 */
+export function requireAdminSession(req: Request, res: Response, next: NextFunction): void {
+  if (hasValidSession(req)) {
+    next();
+    return;
+  }
+  res.status(401).json({ error: { message: "请先登录管理面板", type: "unauthorized" } });
 }
 
 /** 管理接口只允许服务器本机访问，局域网用户无法读取/修改配置。 */
