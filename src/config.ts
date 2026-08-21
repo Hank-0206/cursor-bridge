@@ -37,6 +37,10 @@ export interface AppConfig {
   requestTimeoutMs: number;
   /** 等待客户端回传工具结果的会话保活时间。 */
   sessionIdleMs: number;
+  /** 管理面板登录用户名，写在 data/config.json。 */
+  adminUsername: string;
+  /** 管理面板登录密码，写在 data/config.json。 */
+  adminPassword: string;
 }
 
 const DEFAULTS: AppConfig = {
@@ -51,6 +55,8 @@ const DEFAULTS: AppConfig = {
   maxConcurrentRuns: 4,
   requestTimeoutMs: 600_000,
   sessionIdleMs: 600_000,
+  adminUsername: "admin",
+  adminPassword: "admin",
 };
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -90,6 +96,8 @@ export function loadConfig(): AppConfig {
     }
   }
   config = { ...DEFAULTS, ...loaded };
+  config.adminUsername = String(config.adminUsername ?? "").trim() || DEFAULTS.adminUsername;
+  config.adminPassword = String(config.adminPassword ?? "") || DEFAULTS.adminPassword;
   config.proxyKeys = config.proxyKeys.map((k) => {
     const allowedModels = normalizeAllowedModels(k.allowedModels);
     const next: ProxyKey = { key: k.key, label: k.label, createdAt: k.createdAt };

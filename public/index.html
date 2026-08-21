@@ -177,6 +177,7 @@
       <div class="sub">把 Cursor 订阅里的模型代理成 Anthropic / OpenAI 兼容 API</div>
     </div>
     <div class="badge" id="statusBadge">连接中...</div>
+    <button class="ghost small" type="button" onclick="logout()">退出</button>
   </header>
 
   <div id="visitor">
@@ -358,8 +359,23 @@ function apiError(r, fallback = "请求失败") {
   return fallback;
 }
 
+function goLogin() {
+  location.replace("/login.html");
+}
+
+async function logout() {
+  try {
+    await fetch("/admin/session/logout", { method: "POST", credentials: "same-origin" });
+  } catch { /* ignore */ }
+  goLogin();
+}
+
 async function api(path, opts) {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const res = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...opts });
+  if (res.status === 401) {
+    goLogin();
+    throw Object.assign(new Error("unauthorized"), { unauthorized: true });
+  }
   if (res.status === 403) throw Object.assign(new Error("forbidden"), { forbidden: true });
   const text = await res.text();
   let data;
@@ -447,7 +463,8 @@ async function refreshStatus() {
   try {
     renderStatus(await api("/admin/status"));
   } catch (e) {
-    if (e.forbidden) { showVisitor(); return; }
+    if (e.unauthorized) return;
+    if (e.forbidden) { goLogin(); return; }
     $("statusBadge").textContent = "连接失败";
     $("statusBadge").className = "badge bad";
   }
@@ -714,16 +731,6 @@ async function saveConfig() {
   refreshStatus();
 }
 
-function showVisitor() {
-  $("visitor").style.display = "flex";
-  $("panel").style.display = "none";
-  $("statusBadge").textContent = "访客模式";
-  $("statusBadge").className = "badge";
-  $("vAnthropic").textContent = location.origin + "/v1/messages";
-  $("vOpenai").textContent = location.origin + "/v1/chat/completions";
-  $("visitorSnippets").innerHTML = snippetsHtml("<向管理员索取的访问令牌>");
-}
-
 (async () => {
   try {
     await api("/admin/status");
@@ -736,7 +743,7 @@ function showVisitor() {
     setInterval(refreshRequests, 5000);
     setInterval(refreshUsage, 10000);
   } catch (e) {
-    showVisitor();
+    if (!e.unauthorized) goLogin();
   }
 })();
 </script>

@@ -3,18 +3,30 @@ import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { adminRouter, lanAddresses } from "./admin.js";
 import { handleAnthropicMessages, handleCountTokens } from "./anthropic.js";
-import { requireApiKey, requireLoopback, type AuthedRequest } from "./auth.js";
-import { effectiveCursorKey, getConfig, loadConfig, maskKey } from "./config.js";
+import { requireAdminSession, requireApiKey, verifyAdminCredentials, type AuthedRequest } from "./auth.js";
+import { effectiveCursorKey, loadConfig, maskKey } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
 import { handleResponses, handleResponsesCompact } from "./responses.js";
+import {
+  clearSessionCookie,
+  consumeLoginAttempt,
+  createSession,
+  destroySession,
+  hasValidSession,
+  resetLoginAttempts,
+  sessionFromRequest,
+  setSessionCookie,
+} from "./session.js";
 import { flushUsage } from "./usage.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const publicDir = path.join(rootDir, "public");
 const config = loadConfig();
 const app = express();
 
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "80mb" }));
 
 /** 允许浏览器端客户端（如网页版聊天 UI）跨域调用 API。 */
@@ -76,13 +88,52 @@ app.get("/v1/models", (req, res) => {
   void handleListModels(req, res);
 });
 
-/* ---------------- 管理接口（仅本机） ---------------- */
+/* ---------------- 管理登录（无需会话） ---------------- */
 
-app.use("/admin", requireLoopback, adminRouter);
+app.get("/admin/session", (req, res) => {
+  res.json({ ok: true, loggedIn: hasValidSession(req) });
+});
+
+app.post("/admin/session/login", (req, res) => {
+  const ip = req.ip ?? req.socket.remoteAddress ?? "";
+  const attempt = consumeLoginAttempt(ip);
+  if (!attempt.ok) {
+    res.status(429).json({ ok: false, error: `尝试次数过多，请 ${attempt.retryAfterSec} 秒后再试` });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const username = String(body.username ?? "");
+  const password = String(body.password ?? "");
+  if (!verifyAdminCredentials(username, password)) {
+    res.status(401).json({ ok: false, error: "账号或密码错误" });
+    return;
+  }
+  resetLoginAttempts(ip);
+  setSessionCookie(req, res, createSession());
+  res.json({ ok: true });
+});
+
+app.post("/admin/session/logout", (req, res) => {
+  destroySession(sessionFromRequest(req));
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+});
+
+/* ---------------- 管理接口（需登录） ---------------- */
+
+app.use("/admin", requireAdminSession, adminRouter);
 
 /* ---------------- 面板页面 ---------------- */
 
-app.use(express.static(path.join(rootDir, "public")));
+app.get(["/", "/index.html"], (req, res) => {
+  if (!hasValidSession(req)) {
+    res.redirect(302, "/login.html");
+    return;
+  }
+  res.sendFile(path.join(publicDir, "index.html"));
+});
+
+app.use(express.static(publicDir, { index: false }));
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: { message: `未知路径 ${req.method} ${req.path}`, type: "not_found" } });
@@ -99,6 +150,7 @@ const server = app.listen(listenPort, config.host, () => {
   console.log("======================================================");
   console.log("  cursor-bridge 已启动");
   console.log(`  本机面板:    http://127.0.0.1:${config.port}/`);
+  console.log(`  面板账号:    ${config.adminUsername}（密码见 data/config.json 的 adminPassword）`);
   if (config.host === "0.0.0.0" && lans.length > 0) {
     for (const ip of lans) {
       console.log(`  局域网地址:  http://${ip}:${config.port}`);

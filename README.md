@@ -14,7 +14,7 @@
 │  /v1/chat/completions    ← OpenAI Chat
 │  /v1/responses           ← OpenAI Responses（Codex）
 │  /v1/models                     │
-│  管理面板（仅本机可访问）            │
+│  管理面板（账号密码登录）            │
 └──────────────┬──────────────────┘
                │  Cursor API Key (crsr_...)
                ▼
@@ -36,7 +36,7 @@ npm install
 npm start          # 开发热重载用 npm run dev
 ```
 
-启动后打开面板 **http://127.0.0.1:8318/**：
+启动后打开面板 **http://127.0.0.1:8318/**，用 `data/config.json` 里的 `adminUsername` / `adminPassword` 登录（默认 `admin` / `admin`）：
 
 1. 在「Cursor API Key」卡片粘贴你的 Key（[cursor.com/dashboard → API Keys](https://cursor.com/dashboard/api) 生成），或点「浏览器登录」直接用 Cursor 账号授权；
 2. 点「发送测试请求」确认链路通畅；
@@ -63,7 +63,7 @@ $env:PORT='8319'; npm start
 | `GET` | `/v1/models` | OpenAI | 列出可映射模型 |
 | `GET` | `/healthz` | — | 健康检查（无需令牌） |
 
-`/admin/*` 与配置修改只接受本机 `127.0.0.1`，局域网用户打不开管理接口。
+管理面板和 `/admin/*` 需要先登录。账号密码写在 `data/config.json` 的 `adminUsername` / `adminPassword`。`/v1/*` 仍用访问令牌，不走这个登录。公网反代时请让反向代理把 `X-Forwarded-Proto` 传给服务（HTTPS 下登录 Cookie 才会带 `Secure`）。
 
 ## 在 cc-switch 里配置
 

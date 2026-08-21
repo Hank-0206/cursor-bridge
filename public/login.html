@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · cursor-bridge</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel2: #171c28;
+    --border: #232a3a;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+    --accent: #6d8dff;
+    --danger: #ff6b6b;
+    --radius: 12px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 500px at 70% -10%, #16204000, #0b0e14) var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: min(420px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 26px 24px;
+    box-shadow: 0 24px 80px #0006;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #9d6dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 17px; color: #fff;
+  }
+  h1 { font-size: 18px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  label { display: block; color: var(--muted); font-size: 12.5px; margin: 0 0 6px; }
+  .field + .field { margin-top: 12px; }
+  input {
+    width: 100%; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-size: 14px; font-family: inherit; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    width: 100%; margin-top: 18px; background: var(--accent); border: none;
+    color: #fff; padding: 11px 16px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 600; font-family: inherit;
+  }
+  button:hover { opacity: .88; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 14px; }
+  .hint code { background: var(--panel2); padding: 1.5px 6px; border-radius: 5px; font-size: 12px; }
+  .err { color: var(--danger); font-size: 13px; margin-top: 12px; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <form class="card" id="loginForm">
+    <div class="brand">
+      <div class="logo">CB</div>
+      <div>
+        <h1>cursor-bridge</h1>
+        <div class="sub">登录后才能打开管理面板</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="username">账号</label>
+      <input id="username" name="username" type="text" autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password">
+    </div>
+    <button type="submit" id="submitBtn">登录</button>
+    <div class="err" id="err"></div>
+    <p class="hint">账号密码写在服务器的 <code>data/config.json</code>，字段是 <code>adminUsername</code> 和 <code>adminPassword</code>。</p>
+  </form>
+<script>
+async function alreadyIn() {
+  try {
+    const res = await fetch("/admin/session", { credentials: "same-origin" });
+    const data = await res.json();
+    if (data.loggedIn) location.replace("/");
+  } catch { /* stay on login */ }
+}
+alreadyIn();
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("submitBtn");
+  const err = document.getElementById("err");
+  err.textContent = "";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/admin/session/login", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      err.textContent = data.error || "登录失败";
+      return;
+    }
+    location.replace("/");
+  } catch (ex) {
+    err.textContent = ex.message || "网络错误";
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
