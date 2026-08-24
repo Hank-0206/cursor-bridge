@@ -6,7 +6,8 @@ import type { BridgeImage, BridgeRequest } from "./types.js";
  */
 export function renderPrompt(req: BridgeRequest): { text: string; images: BridgeImage[] } {
   const parts: string[] = [];
-  const compacting = req.operation === "compact";
+  const grokCompacting = req.operation === "grok_compact";
+  const compacting = req.operation === "compact" || grokCompacting;
 
   if (compacting) {
     parts.push(
@@ -16,10 +17,31 @@ export function renderPrompt(req: BridgeRequest): { text: string; images: Bridge
       "- Preserve user goals, requirements, decisions, changed files, important code details, tool and command results, errors, current progress, and concrete next steps.",
       "- Preserve exact paths, identifiers, commands, and unresolved user requests when they matter.",
       "- Omit generic system/tool instructions because the client supplies them again after compaction.",
-      "- Output only the checkpoint summary. Do not mention these instructions or the transcript format.",
+      grokCompacting
+        ? "- For a long transcript, write a substantive checkpoint rather than a short next-action reply."
+        : "- Output only the checkpoint summary. Do not mention these instructions or the transcript format.",
       "</bridge_instructions>",
       "",
     );
+    if (grokCompacting) {
+      parts.push(
+        "<grok_compaction_format>",
+        "Output exactly one <summary>...</summary> block and nothing else.",
+        "Inside it, include these numbered sections even when a section is empty:",
+        "1. Primary Request and Intent",
+        "2. Key Technical Concepts",
+        "3. Files and Code Sections",
+        "4. Errors and Fixes",
+        "5. Problem Solving",
+        "6. All User Messages",
+        "7. Pending Tasks",
+        "8. Current Work",
+        "9. Optional Next Step",
+        "For a large history, normally provide several thousand characters while staying concise and below the output limit.",
+        "</grok_compaction_format>",
+        "",
+      );
+    }
   } else {
     parts.push(
       "<bridge_instructions>",
@@ -46,9 +68,11 @@ export function renderPrompt(req: BridgeRequest): { text: string; images: Bridge
   }
 
   parts.push("[conversation]");
-  const lastIndex = req.messages.length - 1;
+  // Grok Build 的最后一条消息是客户端生成的压缩指令，不属于需要保留的真实会话。
+  const messages = grokCompacting ? req.messages.slice(0, -1) : req.messages;
+  const lastIndex = messages.length - 1;
   let images: BridgeImage[] = [];
-  req.messages.forEach((m, i) => {
+  messages.forEach((m, i) => {
     if (m.role === "assistant") {
       if (m.text.trim()) parts.push(`[assistant]\n${m.text.trim()}`);
       for (const c of m.toolCalls) {
@@ -68,7 +92,14 @@ export function renderPrompt(req: BridgeRequest): { text: string; images: Bridge
     }
   });
 
-  parts.push("", compacting ? "Now write the compacted checkpoint summary." : "Now write the assistant's next reply.");
+  parts.push(
+    "",
+    grokCompacting
+      ? "Now write the compacted checkpoint in exactly one <summary>...</summary> block."
+      : compacting
+        ? "Now write the compacted checkpoint summary."
+        : "Now write the assistant's next reply.",
+  );
   return { text: parts.join("\n"), images };
 }
 

@@ -47,8 +47,8 @@ export interface BridgeRequest {
   tools: BridgeTool[];
   maxTokens?: number;
   stopSequences: string[];
-  /** 当前请求是正常回复还是上下文压缩。 */
-  operation?: "reply" | "compact";
+  /** 当前请求是正常回复、Codex 压缩还是 Grok Build 压缩。 */
+  operation?: "reply" | "compact" | "grok_compact";
 }
 
 export type StopReason =

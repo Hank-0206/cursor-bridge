@@ -144,6 +144,10 @@ curl.exe -sN -X POST http://127.0.0.1:8318/v1/responses -H "content-type: applic
 代理同时实现 Codex 长对话使用的 `/v1/responses/compact`。压缩摘要会使用当前访问令牌
 加密为不透明 `compaction` item；后续请求回传该 item 时由代理解密并作为精简后的会话状态继续使用。
 
+Grok Build 通过普通 `/v1/responses` 请求追加内置摘要指令来压缩上下文。代理会自动识别
+该请求，关闭工具并切换为摘要提示词，同时保持标准 Responses 流格式返回 `<summary>`，
+避免模型把压缩请求误当成继续执行任务。
+
 ## 局域网访问与防火墙
 
 - 默认监听 `0.0.0.0:8318`，同一局域网内的设备用 `http://<你的IP>:8318` 访问（启动横幅和面板里都会显示检测到的 IP）。

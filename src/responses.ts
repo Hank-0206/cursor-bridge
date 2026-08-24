@@ -38,6 +38,13 @@ export function lastResponsesRequest(): { ts: string; body: unknown } | null {
 const DATA_URL_RE = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i;
 const COMPACTION_PREFIX = "cb1.";
 const COMPACTION_MAX_BYTES = 8 * 1024 * 1024;
+const GROK_COMPACTION_PROMPT_PREFIX =
+  "Your task is to produce a faithful, concise summary of the conversation so far";
+const GROK_COMPACTION_PROMPT_MARKERS = [
+  "The successor will see the user's original query plus this summary",
+  "Respond with ONLY the <summary>...</summary> block",
+  "system-generated compaction prompt",
+];
 
 /** 使用当前访问令牌加密压缩摘要，供 Codex 作为不透明 compaction item 保存。 */
 export function encodeBridgeCompaction(summary: string, secret: string): string {
@@ -228,6 +235,25 @@ export function parseResponsesRequest(body: Record<string, unknown>, compactionS
     maxTokens,
     stopSequences: [],
   };
+}
+
+/** 识别 Grok Build 追加在普通 Responses 请求末尾的内置压缩指令。 */
+export function isGrokBuildCompactionRequest(req: BridgeRequest): boolean {
+  const last = req.messages[req.messages.length - 1];
+  if (!last || last.role !== "user" || last.images.length > 0 || last.toolResults.length > 0) return false;
+  const text = last.text.trim();
+  return text.startsWith(GROK_COMPACTION_PROMPT_PREFIX)
+    && GROK_COMPACTION_PROMPT_MARKERS.every((marker) => text.includes(marker));
+}
+
+/** 把 Grok Build 的普通 Responses 摘要请求切换成专用压缩模式。 */
+export function prepareGrokBuildCompaction(req: BridgeRequest): boolean {
+  if (!isGrokBuildCompactionRequest(req)) return false;
+  req.operation = "grok_compact";
+  req.tools = [];
+  req.stopSequences = [];
+  req.maxTokens = 16_384;
+  return true;
 }
 
 function safeParse(v: unknown): unknown {
@@ -679,6 +705,7 @@ export async function handleResponses(req: Request, res: Response, keyLabel: str
     res.status(status).json(eb);
     return;
   }
+  prepareGrokBuildCompaction(bridgeReq);
   const stream = Boolean(body.stream);
   const meta: RequestMeta = {
     api: "responses",

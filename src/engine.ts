@@ -331,12 +331,16 @@ setInterval(() => {
 /* 错误转换                                                             */
 /* ------------------------------------------------------------------ */
 
-function toBridgeError(err: unknown): BridgeError {
+/** 把 Cursor SDK 错误转换成对外统一的中文错误。 */
+export function toBridgeError(err: unknown): BridgeError {
   if (err instanceof BridgeError) return err;
   const e = err as { status?: number; code?: string; message?: string };
   const msg = e?.message || String(err);
   const status = e?.status;
-  if (status === 401 || /unauthorized|invalid (user )?api key|not logged in|api key is required/i.test(msg)) {
+  if (
+    status === 401
+    || /unauthorized|authentication error|invalid (user )?api key|not logged in|logged out and back in|api key is required/i.test(msg)
+  ) {
     return new BridgeError("auth", `Cursor 鉴权失败：${msg}（请在管理面板检查 Cursor API Key）`);
   }
   if (status === 429) return new BridgeError("rate_limit", `Cursor 限流：${msg}`);

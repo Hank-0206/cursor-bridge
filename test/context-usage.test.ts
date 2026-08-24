@@ -4,9 +4,13 @@ import {
   buildCompactedResponse,
   decodeBridgeCompaction,
   encodeBridgeCompaction,
+  isGrokBuildCompactionRequest,
   parseResponsesRequest,
+  prepareGrokBuildCompaction,
   responsesUsageJson,
 } from "../src/responses.js";
+import { toBridgeError } from "../src/engine.js";
+import { renderPrompt } from "../src/prompt.js";
 import {
   buildLiveContextUsage,
   estimateRequestTokens,
@@ -99,4 +103,50 @@ test("Codex compact 响应只保留用户消息和一个压缩项", () => {
   assert.match(resumed.messages[1]?.text ?? "", /已定位并修复问题/);
   assert.equal(resumed.messages[2]?.text, "继续处理");
   assert.ok(estimateRequestTokens(resumed) < estimateRequestTokens(original) / 100);
+});
+
+const GROK_COMPACTION_PROMPT = `Your task is to produce a faithful, concise summary of the conversation so far so that a successor assistant can continue the work seamlessly after the earlier turns are discarded. The successor will see the user's original query plus this summary.
+
+Respond with ONLY the <summary>...</summary> block. This is a system-generated compaction prompt.`;
+
+test("Grok Build 的普通 Responses 压缩请求会进入专用模式", () => {
+  const req = parseResponsesRequest({
+    model: "grok-4.6",
+    input: [
+      { type: "message", role: "user", content: "修复上下文压缩" },
+      { type: "message", role: "assistant", content: "正在检查请求路径。" },
+      { type: "message", role: "user", content: GROK_COMPACTION_PROMPT },
+    ],
+    tools: [{ type: "function", name: "run_terminal_command", parameters: { type: "object" } }],
+    max_output_tokens: 2_000,
+  });
+
+  assert.equal(isGrokBuildCompactionRequest(req), true);
+  assert.equal(prepareGrokBuildCompaction(req), true);
+  assert.equal(req.operation, "grok_compact");
+  assert.equal(req.maxTokens, 16_384);
+  assert.deepEqual(req.tools, []);
+
+  const rendered = renderPrompt(req).text;
+  assert.match(rendered, /You are a CONTEXT COMPACTOR/);
+  assert.match(rendered, /exactly one <summary>\.\.\.<\/summary> block/);
+  assert.doesNotMatch(rendered, /Now write the assistant's next reply/);
+  assert.doesNotMatch(rendered, /system-generated compaction prompt/);
+  assert.match(rendered, /修复上下文压缩/);
+});
+
+test("普通总结请求不会误判为 Grok Build 自动压缩", () => {
+  const req = requestWithHistory("请总结一下当前进展，并说明下一步。 ");
+
+  assert.equal(isGrokBuildCompactionRequest(req), false);
+  assert.equal(prepareGrokBuildCompaction(req), false);
+  assert.equal(req.operation, undefined);
+});
+
+test("Cursor SDK 的 Authentication error 会归类为鉴权错误", () => {
+  const err = toBridgeError(new Error("Authentication error If you are logged in, try logging out and back in."));
+
+  assert.equal(err.kind, "auth");
+  assert.match(err.message, /Cursor 鉴权失败/);
+  assert.match(err.message, /请在管理面板检查 Cursor API Key/);
 });
