@@ -235,6 +235,28 @@ Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端
 - 每个新对话轮次会创建一次 agent（首 token 延迟约几秒）；同一轮内的连续工具调用走会话续接，无额外开销。
 - token 用量在后端未上报时为估算值（约 4 字符 = 1 token）。
 
+## Docker 部署
+
+配置和用量写在宿主机 `./data`，容器重建不会丢。
+
+```bash
+# 可选：把 Cursor Key 写进环境变量
+# echo 'CURSOR_API_KEY=crsr_...' > .env
+
+./scripts/docker-up.sh      # Windows 用 scripts\docker-up.cmd
+# 打开 http://127.0.0.1:8318/
+./scripts/docker-down.sh
+```
+
+或直接：
+
+```bash
+mkdir -p data
+docker compose up -d --build
+```
+
+换端口：`PORT=8319 ./scripts/docker-up.sh`。日志：`docker compose logs -f`。
+
 ## 作为后台服务常驻运行（Windows）
 
 `scripts/` 下的脚本已做成路径自适应，解压到任意目录都能用：
