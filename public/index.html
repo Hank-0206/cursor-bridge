@@ -62,7 +62,7 @@
               <h2>接入 Cursor</h2>
             </div>
             <label class="field-label" for="cursorKeyInput">API Key</label>
-            <input type="password" id="cursorKeyInput" placeholder="crsr_... （cursor.com/dashboard → API Keys）">
+            <input type="password" id="cursorKeyInput" placeholder="crsr_...">
             <p class="hint" id="keyStatus"></p>
             <div class="card-foot">
               <div class="row">
@@ -121,7 +121,7 @@
           <div class="card-head">
             <div>
               <h2>运行策略</h2>
-              <p class="hint">未映射时按 精确匹配 → 关键词 → 默认模型 解析</p>
+              <p class="hint">未识别的模型名走默认模型</p>
             </div>
             <button type="button" onclick="saveConfig()">保存配置</button>
           </div>
@@ -336,6 +336,13 @@ function apiError(r, fallback = "请求失败") {
   return fallback;
 }
 
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 function goLogin() {
   location.replace("/login.html");
 }
@@ -517,7 +524,7 @@ function renderStatus(s) {
     ? (s.lanAddresses.map((ip) => `${ip}:${s.port}`).join(" · ") || "未检测到局域网 IP")
     : `仅 ${esc(s.host)}:${s.port}`;
   const ok = s.cursorKey.configured;
-  const src = s.cursorKey.source === "config" ? "面板配置" : s.cursorKey.source === "env" ? "环境变量 CURSOR_API_KEY" : "SDK 浏览器登录";
+  const src = s.cursorKey.source === "config" ? "面板" : s.cursorKey.source === "env" ? "环境变量" : "浏览器登录";
   $("statusCards").innerHTML = `
     <article class="card metric">
       <div class="k">状态</div>
@@ -539,7 +546,7 @@ function renderStatus(s) {
     </article>`;
   $("keyStatus").textContent = ok
     ? `当前 Key 来源：${src}`
-    : "粘贴 crsr_ 开头的 Key，点右下角「保存并验证」。";
+    : "填写 API Key 后保存。";
   $("allowTools").value = String(s.config.allowClientTools);
   $("maximize").value = String(s.config.maximizeModels ?? false);
   $("maxConcurrent").value = s.config.maxConcurrentRuns;
@@ -779,11 +786,11 @@ async function refreshRequests() {
   try {
     const r = await api("/admin/requests");
     $("noReq").style.display = "none";
-    $("reqTable").innerHTML = r.requests.length ? r.requests.slice(0, 40).map((q) => {
+    $("reqTable").innerHTML = r.requests.length ? r.requests.slice(0, 100).map((q) => {
       const tag = q.status === "ok" ? "ok" : q.status === "tool_use" ? "tool" : "err";
       const label = q.status === "ok" ? "完成" : q.status === "tool_use" ? "工具调用" : "错误";
       return `<tr>
-        <td class="muted">${new Date(q.ts).toLocaleTimeString()}</td>
+        <td class="muted">${fmtDateTime(q.ts)}</td>
         <td><span class="tag ${tag}">${label}</span></td>
         <td>${esc(q.api)} · ${esc(q.keyLabel)}</td>
         <td class="mono">${esc(q.requestedModel)} → ${esc(q.cursorModel)}${q.error ? `<details class="alias-fold"><summary class="muted">错误</summary><div class="muted">${esc(q.error)}</div></details>` : ""}</td>

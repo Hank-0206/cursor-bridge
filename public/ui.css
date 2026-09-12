@@ -609,8 +609,7 @@ td.empty-cell { text-align: center; color: var(--mute); padding: 28px 12px; }
   box-shadow: var(--shadow);
 }
 .login-form .brand { margin-bottom: 20px; }
-.login-form h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-.login-form .lead { color: var(--mute); font-size: 13px; margin-bottom: 18px; }
+.login-form h2 { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
 .login-form .field + .field { margin-top: 12px; }
 .login-form button[type="submit"] { width: 100%; margin-top: 16px; }
 .err { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 1.2em; }

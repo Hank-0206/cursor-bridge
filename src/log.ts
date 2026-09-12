@@ -19,7 +19,7 @@ export interface RequestLogEntry {
   error?: string;
 }
 
-const MAX_REQUESTS = 200;
+const MAX_REQUESTS = 100;
 const requestLog: RequestLogEntry[] = [];
 
 export function logRequest(entry: RequestLogEntry): void {
