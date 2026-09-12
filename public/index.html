@@ -4,314 +4,247 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>cursor-bridge 控制台</title>
-<style>
-  :root {
-    --bg: #0b0e14;
-    --panel: #12161f;
-    --panel2: #171c28;
-    --border: #232a3a;
-    --text: #e6e9f0;
-    --muted: #8b93a7;
-    --accent: #6d8dff;
-    --accent2: #37c99e;
-    --danger: #ff6b6b;
-    --radius: 12px;
-    font-size: 15px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    background: radial-gradient(1200px 500px at 70% -10%, #16204000, #0b0e14) var(--bg);
-    color: var(--text);
-    font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
-    overflow: hidden;
-  }
-  .app { height: 100%; display: flex; flex-direction: column; }
-  header {
-    flex: 0 0 auto;
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    padding: 14px 20px 0;
-  }
-  .logo {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent), #9d6dff);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 17px; color: #fff;
-  }
-  h1 { font-size: 18px; font-weight: 650; }
-  .sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
-  .badge {
-    margin-left: auto; padding: 5px 12px; border-radius: 99px; font-size: 12.5px;
-    border: 1px solid var(--border); color: var(--muted);
-  }
-  .badge.ok { color: var(--accent2); border-color: #1d4d3f; background: #12281f55; }
-  .badge.bad { color: var(--danger); border-color: #552727; }
-  .tabs {
-    flex: 0 0 auto;
-    display: flex; gap: 4px; padding: 12px 20px 0;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-  }
-  .tabs button {
-    background: transparent; border: none; color: var(--muted);
-    padding: 9px 14px 11px; border-radius: 8px 8px 0 0;
-    font-size: 13.5px; font-weight: 600; cursor: pointer;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-  }
-  .tabs button:hover { color: var(--text); background: #171c2888; }
-  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
-  .content {
-    flex: 1 1 auto;
-    overflow: auto;
-    padding: 18px 20px 32px;
-  }
-  .wrap { max-width: 1120px; margin: 0 auto; }
-  .tab-page { display: none; }
-  .tab-page.active { display: block; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 18px 20px; margin-bottom: 14px;
-  }
-  .card h2 { font-size: 15px; font-weight: 650; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-  .card h2 .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--accent); display: inline-block; }
-  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .stat {
-    flex: 1; min-width: 130px; background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 14px;
-  }
-  .stat .k { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-  .stat .v { font-size: 16px; font-weight: 600; word-break: break-all; }
-  .stat .v.small { font-size: 13px; font-weight: 500; }
-  input[type=text], input[type=password], input[type=number], input[type=search], select, textarea {
-    width: 100%; background: var(--panel2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
-    font-size: 14px; font-family: inherit; outline: none;
-  }
-  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-  textarea { font-family: Consolas, monospace; font-size: 13px; min-height: 90px; resize: vertical; }
-  button {
-    background: var(--accent); border: none; color: #fff; padding: 9px 16px;
-    border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: inherit;
-  }
-  button:hover { opacity: .88; }
-  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  button.danger { background: transparent; border: 1px solid #4b2330; color: var(--danger); }
-  button.small { padding: 5px 10px; font-size: 12.5px; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .row + .row { margin-top: 10px; }
-  .hint { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 8px; }
-  .hint code, td code { background: var(--panel2); padding: 1.5px 6px; border-radius: 5px; font-size: 12px; }
-  pre {
-    background: #0d1118; border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px; font-size: 12.5px; overflow-x: auto; line-height: 1.55;
-    font-family: Consolas, "Courier New", monospace; position: relative; white-space: pre;
-  }
-  .code-wrap { position: relative; margin-top: 10px; }
-  .copy-btn { position: absolute; top: 8px; right: 8px; }
-  .table-wrap { overflow: auto; max-height: calc(100vh - 260px); }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--panel); }
-  td.mono { font-family: Consolas, monospace; font-size: 12px; }
-  .tag { padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
-  .tag.ok { background: #12281f; color: var(--accent2); }
-  .tag.tool { background: #1d2340; color: var(--accent); }
-  .tag.err { background: #2e1519; color: var(--danger); }
-  .toast {
-    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-    background: #1c2333; border: 1px solid var(--border); color: var(--text);
-    padding: 10px 20px; border-radius: 10px; font-size: 13.5px; display: none; z-index: 120;
-  }
-  .muted { color: var(--muted); }
-  .spin { display: inline-block; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  #visitor, #panel {
-    display: none;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  #visitor .content, #panel .content { flex: 1; min-height: 0; }
-  a { color: var(--accent); }
-  .steps { counter-reset: s; list-style: none; }
-  .steps li { counter-increment: s; padding: 6px 0 6px 34px; position: relative; font-size: 13.5px; color: var(--text); line-height: 1.6; }
-  .steps li::before {
-    content: counter(s); position: absolute; left: 0; top: 7px;
-    width: 22px; height: 22px; border-radius: 99px; background: var(--panel2);
-    border: 1px solid var(--border); color: var(--accent);
-    font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700;
-  }
-  .overlay {
-    position: fixed; inset: 0; background: #07090ecc; display: none;
-    align-items: center; justify-content: center; z-index: 80; padding: 20px;
-  }
-  .overlay.show { display: flex; }
-  .modal {
-    width: min(560px, 100%); max-height: min(80vh, 720px);
-    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    display: flex; flex-direction: column; box-shadow: 0 24px 80px #0008;
-  }
-  .modal h3 { font-size: 16px; padding: 16px 18px 8px; }
-  .modal .modal-body { padding: 0 18px 12px; overflow: auto; flex: 1; }
-  .modal .modal-foot {
-    padding: 12px 18px 16px; display: flex; gap: 8px; justify-content: flex-end;
-    border-top: 1px solid var(--border);
-  }
-  .model-list label {
-    display: flex; align-items: center; gap: 8px; font-size: 13px;
-    padding: 6px 4px; cursor: pointer; border-radius: 6px;
-  }
-  .model-list label:hover { background: var(--panel2); }
-  .model-list input { width: auto; accent-color: var(--accent); }
-  .model-list .alias { color: var(--muted); font-size: 11.5px; margin-left: auto; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ui.css">
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="logo">CB</div>
-    <div>
-      <h1>cursor-bridge</h1>
-      <div class="sub">把 Cursor 订阅里的模型代理成 Anthropic / OpenAI 兼容 API</div>
+<div class="boot" id="boot">
+  <span class="mark" aria-hidden="true">
+    <svg viewBox="0 0 36 36" fill="none">
+      <path d="M6 23c5-9 9-9 12 0s7 9 12 0" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="18" cy="12.5" r="2.4" fill="#fff"/>
+    </svg>
+  </span>
+  正在连接…
+</div>
+
+<div class="app" id="panel">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 36 36" fill="none">
+          <path d="M6 23c5-9 9-9 12 0s7 9 12 0" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="18" cy="12.5" r="2.4" fill="#fff"/>
+        </svg>
+      </span>
+      <div>
+        <h1>cursor-bridge</h1>
+        <div class="sub">把 Cursor 模型接到兼容 API</div>
+      </div>
     </div>
-    <div class="badge" id="statusBadge">连接中...</div>
-    <button class="ghost small" type="button" onclick="logout()">退出</button>
+    <nav class="nav" id="tabs">
+      <button data-tab="overview" class="active" type="button">概览</button>
+      <button data-tab="keys" type="button">访问令牌</button>
+      <button data-tab="models" type="button">模型</button>
+      <button data-tab="guide" type="button">接入</button>
+      <button data-tab="monitor" type="button">监控</button>
+    </nav>
+    <div class="top-end">
+      <div class="badge" id="statusBadge">连接中...</div>
+      <button class="ghost small" type="button" onclick="logout()">退出</button>
+    </div>
   </header>
 
-  <div id="visitor">
-    <div class="content">
-      <div class="wrap">
-        <div class="card">
-          <h2><span class="dot"></span>接入方式</h2>
-          <p class="hint">这是一台 cursor-bridge 代理服务器。你需要向服务器管理员索取一个<b>访问令牌</b>（形如 <code>sk-cb-...</code>），然后按下面任一方式接入。管理配置仅限服务器本机操作。</p>
-          <div class="stat-row" style="margin-top:12px">
-            <div class="stat"><div class="k">Anthropic 兼容端点</div><div class="v small mono" id="vAnthropic"></div></div>
-            <div class="stat"><div class="k">OpenAI 兼容端点</div><div class="v small mono" id="vOpenai"></div></div>
+  <div class="content">
+    <div class="wrap">
+      <div class="page-head">
+        <h1 id="pageTitle">运行概览</h1>
+        <p id="pageDesc">看状态、配 Key、测链路</p>
+      </div>
+
+      <section class="tab-page active" data-page="overview">
+        <div class="grid-4" id="statusCards"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>接入 Cursor</h2>
+            </div>
+            <label class="field-label" for="cursorKeyInput">API Key</label>
+            <input type="password" id="cursorKeyInput" placeholder="crsr_... （cursor.com/dashboard → API Keys）">
+            <p class="hint" id="keyStatus"></p>
+            <div class="card-foot">
+              <div class="row">
+                <button class="ghost" type="button" onclick="verifyKey()">测试当前 Key</button>
+                <button class="ghost" type="button" onclick="sdkLogin()">浏览器登录</button>
+              </div>
+              <div class="right">
+                <button class="danger" type="button" onclick="clearCursorKey()">清除</button>
+                <button type="button" onclick="saveCursorKey()">保存并验证</button>
+              </div>
+            </div>
           </div>
-          <div id="visitorSnippets"></div>
+          <div class="card">
+            <div class="card-head">
+              <h2>试一试</h2>
+            </div>
+            <label class="field-label" for="testModel">用这个模型发一条测试</label>
+            <select id="testModel"></select>
+            <button class="wide" type="button" onclick="testCall()" id="testBtn" style="margin-top:14px">发送测试请求</button>
+            <span class="hint" id="testResult"></span>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
+      </section>
 
-  <div id="panel">
-    <nav class="tabs" id="tabs">
-      <button data-tab="overview" class="active">概览</button>
-      <button data-tab="keys">访问令牌</button>
-      <button data-tab="models">模型</button>
-      <button data-tab="guide">接入</button>
-      <button data-tab="monitor">监控</button>
-    </nav>
-    <div class="content">
-      <div class="wrap">
-        <section class="tab-page active" data-page="overview">
-          <div class="card">
-            <h2><span class="dot"></span>运行状态</h2>
-            <div class="stat-row" id="statusCards"></div>
-          </div>
-          <div class="card">
-            <h2><span class="dot"></span>Cursor API Key</h2>
-            <div class="row">
-              <input type="password" id="cursorKeyInput" placeholder="crsr_... （在 cursor.com/dashboard → API Keys 生成）" style="flex:1;min-width:240px">
-              <button onclick="saveCursorKey()">保存并验证</button>
-              <button class="ghost" onclick="verifyKey()">测试当前 Key</button>
-              <button class="ghost" onclick="sdkLogin()">浏览器登录</button>
-              <button class="danger" onclick="clearCursorKey()">清除</button>
-            </div>
-            <div class="hint" id="keyStatus"></div>
-            <div class="row" style="margin-top:14px">
-              <select id="testModel" style="max-width:280px"></select>
-              <button class="ghost" onclick="testCall()" id="testBtn">发送测试请求</button>
-              <span class="hint" id="testResult" style="margin-top:0"></span>
+      <section class="tab-page" data-page="keys" hidden>
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <h2>访问令牌</h2>
+              <p class="hint">每人一把。滥用就删。不限制则能用全部模型。</p>
             </div>
           </div>
-        </section>
+          <div class="composer">
+            <input type="text" id="newKeyLabel" placeholder="备注，例如：小明的电脑">
+            <button type="button" onclick="addKey()">生成新令牌</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>备注</th>
+                  <th>令牌</th>
+                  <th>模型</th>
+                  <th>创建时间</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="keysTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-        <section class="tab-page" data-page="keys">
-          <div class="card">
-            <h2><span class="dot"></span>访问令牌</h2>
-            <div class="row" style="margin-bottom:12px">
-              <input type="text" id="newKeyLabel" placeholder="备注，例如：小明的电脑" style="max-width:240px">
-              <button onclick="addKey()">生成新令牌</button>
+      <section class="tab-page" data-page="models" hidden>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>运行策略</h2>
+              <p class="hint">未映射时按 精确匹配 → 关键词 → 默认模型 解析</p>
             </div>
-            <div class="table-wrap">
-              <table id="keysTable"><thead><tr><th>备注</th><th>令牌</th><th>可用模型</th><th>创建时间</th><th></th></tr></thead><tbody></tbody></table>
-            </div>
-            <p class="hint">每人一个令牌，滥用即删。点「可用模型」会弹出勾选框；不限制则该令牌能用全部模型。</p>
+            <button type="button" onclick="saveConfig()">保存配置</button>
           </div>
-        </section>
+          <div class="grid-2" style="margin-bottom:14px">
+            <button type="button" class="tile" id="allowToolsTile" data-switch="allowTools">
+              <span>
+                <span class="tile-k">桥接客户端工具</span>
+                <span class="tile-v" id="allowToolsLabel">开启 · 推荐</span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="tile" id="maximizeTile" data-switch="maximize">
+              <span>
+                <span class="tile-k">性能拉满</span>
+                <span class="tile-v" id="maximizeLabel">关闭 · 官方默认档</span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+          </div>
+          <select id="allowTools" hidden>
+            <option value="true">开启（推荐）</option>
+            <option value="false">关闭（纯对话）</option>
+          </select>
+          <select id="maximize" hidden>
+            <option value="true">开启（更耗额度）</option>
+            <option value="false">关闭（官方默认档）</option>
+          </select>
+          <div class="policy">
+            <div>
+              <label class="field-label" for="defaultModel">默认模型</label>
+              <select id="defaultModel"></select>
+            </div>
+            <div>
+              <label class="field-label" for="maxConcurrent">最大并发</label>
+              <input type="number" id="maxConcurrent" min="1" max="32">
+            </div>
+          </div>
+          <details class="fold-block" style="margin-top:14px">
+            <summary>手动模型映射</summary>
+            <label class="field-label" for="overrides">请求名 → Cursor 模型 id</label>
+            <textarea id="overrides" spellcheck="false">{}</textarea>
+          </details>
+        </div>
+        <div class="card table-card">
+          <div class="card-head">
+            <h2>模型目录</h2>
+            <input type="search" id="modelFilter" placeholder="筛选模型" style="max-width:220px" oninput="renderModelCatalog()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>模型 id</th>
+                  <th>名称</th>
+                  <th>别名</th>
+                </tr>
+              </thead>
+              <tbody id="modelsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-        <section class="tab-page" data-page="models">
-          <div class="card">
-            <h2><span class="dot"></span>模型与行为</h2>
-            <div class="row">
-              <div style="flex:1;min-width:200px">
-                <div class="hint" style="margin:0 0 6px">默认模型（映射失败时兜底）</div>
-                <select id="defaultModel"></select>
-              </div>
-              <div style="flex:1;min-width:200px">
-                <div class="hint" style="margin:0 0 6px">桥接客户端工具</div>
-                <select id="allowTools"><option value="true">开启（推荐）</option><option value="false">关闭（纯对话）</option></select>
-              </div>
-              <div style="flex:1;min-width:200px">
-                <div class="hint" style="margin:0 0 6px">性能拉满</div>
-                <select id="maximize"><option value="true">开启（更耗额度）</option><option value="false">关闭（官方默认档）</option></select>
-              </div>
-              <div style="flex:1;min-width:140px">
-                <div class="hint" style="margin:0 0 6px">最大并发</div>
-                <input type="number" id="maxConcurrent" min="1" max="32">
-              </div>
-            </div>
-            <div class="row" style="margin-top:12px">
-              <div style="flex:1">
-                <div class="hint" style="margin:0 0 6px">手动模型映射（请求名 → Cursor 模型 id）</div>
-                <textarea id="overrides" spellcheck="false">{}</textarea>
-              </div>
-            </div>
-            <div class="row" style="margin-top:12px">
-              <button onclick="saveConfig()">保存配置</button>
-              <span class="hint" style="margin:0">未映射时按 精确匹配 → 关键词 → 默认模型 解析</span>
+      <section class="tab-page" data-page="guide" hidden>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>接到客户端</h2>
+              <p class="hint">左边选方式，右边复制配置</p>
             </div>
           </div>
-          <div class="card">
-            <h2><span class="dot"></span>可用 Cursor 模型</h2>
-            <div class="table-wrap">
-              <table id="modelsTable"><thead><tr><th>模型 id</th><th>名称</th><th>别名</th></tr></thead><tbody></tbody></table>
-            </div>
-          </div>
-        </section>
+          <div id="adminSnippets"></div>
+        </div>
+      </section>
 
-        <section class="tab-page" data-page="guide">
-          <div class="card">
-            <h2><span class="dot"></span>接入指南</h2>
-            <div id="adminSnippets"></div>
-          </div>
-        </section>
-
-        <section class="tab-page" data-page="monitor">
-          <div class="card">
-            <h2><span class="dot"></span>用量统计</h2>
-            <div class="stat-row" id="usageTotals" style="margin-bottom:14px"></div>
-            <div class="table-wrap" style="max-height:280px">
-              <table id="usageTable"><thead><tr><th>令牌</th><th>合计消耗</th><th>请求数</th><th>输入</th><th>输出</th><th>缓存写</th><th>缓存读</th><th>最后使用</th></tr></thead><tbody></tbody></table>
+      <section class="tab-page" data-page="monitor" hidden>
+        <div class="grid-4" id="usageTotals"></div>
+        <div class="card table-card">
+          <div class="card-head">
+            <div>
+              <h2>按令牌用量</h2>
+              <p class="hint" id="usageSince"></p>
             </div>
-            <p class="hint" id="noUsage">暂无用量记录</p>
-            <div class="row" style="margin-top:10px">
-              <span class="hint" style="margin:0" id="usageSince"></span>
-              <button class="small danger" onclick="resetUsageStats()" style="margin-left:auto">清零重计</button>
-            </div>
+            <button class="danger" type="button" onclick="resetUsageStats()">清零重计</button>
           </div>
-          <div class="card">
-            <h2><span class="dot"></span>最近请求</h2>
-            <div class="table-wrap">
-              <table id="reqTable"><thead><tr><th>时间</th><th>协议</th><th>令牌</th><th>模型</th><th>状态</th><th>耗时</th><th>tokens</th></tr></thead><tbody></tbody></table>
-            </div>
-            <p class="hint" id="noReq">暂无请求记录</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>令牌</th>
+                  <th>请求</th>
+                  <th>总消耗</th>
+                  <th>输入 / 输出</th>
+                  <th>最近使用</th>
+                </tr>
+              </thead>
+              <tbody id="usageTable"></tbody>
+            </table>
           </div>
-        </section>
-      </div>
+          <p class="empty" id="noUsage">暂无用量记录</p>
+        </div>
+        <div class="card table-card">
+          <div class="card-head">
+            <h2>最近请求</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>状态</th>
+                  <th>来源</th>
+                  <th>模型</th>
+                  <th>耗时</th>
+                  <th>tokens</th>
+                </tr>
+              </thead>
+              <tbody id="reqTable"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="noReq">暂无请求记录</p>
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -328,8 +261,18 @@
       <div class="model-list" id="keyChecks"></div>
     </div>
     <div class="modal-foot">
-      <button class="ghost" onclick="closeModelModal()">取消</button>
-      <button onclick="saveKeyModels()">保存</button>
+      <button class="ghost" type="button" onclick="closeModelModal()">取消</button>
+      <button type="button" onclick="saveKeyModels()">保存</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="askModal" onclick="if(event.target===this) finishAsk(false)">
+  <div class="modal modal-sm" role="dialog" aria-modal="true">
+    <h3>请确认</h3>
+    <div class="modal-body"><p class="hint" id="askMsg" style="margin:8px 0 0;font-size:14px;color:var(--ink)"></p></div>
+    <div class="modal-foot">
+      <button class="ghost" type="button" id="askNo">取消</button>
+      <button type="button" id="askYes">确定</button>
     </div>
   </div>
 </div>
@@ -344,14 +287,48 @@ let keysCache = [];
 let modelsCache = [];
 let editingKeyIndex = -1;
 let editingSelected = new Set();
+let askResolve = null;
+
+const PAGE_META = {
+  overview: { title: "运行概览", desc: "看状态、配 Key、测链路" },
+  keys: { title: "访问令牌", desc: "给每位使用者发一把钥匙" },
+  models: { title: "模型与行为", desc: "默认模型、工具和并发" },
+  guide: { title: "接入指南", desc: "复制配置，接到客户端" },
+  monitor: { title: "用量监控", desc: "谁在用、用了多少" },
+};
 
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
+  t.classList.add("show");
   t.style.display = "block";
   clearTimeout(t._h);
-  t._h = setTimeout(() => (t.style.display = "none"), 2600);
+  t._h = setTimeout(() => {
+    t.classList.remove("show");
+    t.style.display = "none";
+  }, 2600);
 }
+
+function ask(message, { danger = false, ok = "确定" } = {}) {
+  return new Promise((resolve) => {
+    askResolve = resolve;
+    $("askMsg").textContent = message;
+    $("askYes").textContent = ok;
+    $("askYes").className = danger ? "danger-fill" : "";
+    $("askModal").classList.add("show");
+    $("askYes").focus();
+  });
+}
+
+function finishAsk(ok) {
+  $("askModal").classList.remove("show");
+  const resolve = askResolve;
+  askResolve = null;
+  if (resolve) resolve(ok);
+}
+
+$("askYes").addEventListener("click", () => finishAsk(true));
+$("askNo").addEventListener("click", () => finishAsk(false));
 
 function apiError(r, fallback = "请求失败") {
   if (typeof r?.error === "string" && r.error) return r.error;
@@ -385,8 +362,38 @@ async function api(path, opts) {
   return data;
 }
 
-function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => toast("已复制到剪贴板")).catch(() => toast("复制失败，请手动选择"));
+function copyText(text, el) {
+  const done = () => {
+    toast("已复制到剪贴板");
+    if (el) {
+      const prev = el.textContent;
+      el.textContent = "已复制";
+      el.classList.add("copied");
+      setTimeout(() => {
+        el.textContent = prev;
+        el.classList.remove("copied");
+      }, 1400);
+    }
+  };
+  const fail = () => toast("复制失败，请手动选择");
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+    return;
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    ok ? done() : fail();
+  } catch {
+    fail();
+  }
 }
 
 function baseUrl() {
@@ -402,31 +409,98 @@ function snippetsHtml(token) {
   const claudeJson = JSON.stringify({ env: { ANTHROPIC_BASE_URL: base, ANTHROPIC_AUTH_TOKEN: token } }, null, 2);
   const curlA = `curl ${base}/v1/messages -H "content-type: application/json" -H "x-api-key: ${token}" -d "{\\"model\\":\\"claude-sonnet-4-5\\",\\"max_tokens\\":100,\\"messages\\":[{\\"role\\":\\"user\\",\\"content\\":\\"你好\\"}]}"`;
   const pyOpenai = `from openai import OpenAI\nclient = OpenAI(base_url="${base}/v1", api_key="${token}")\nr = client.chat.completions.create(model="auto", messages=[{"role":"user","content":"你好"}])\nprint(r.choices[0].message.content)`;
+  const copy = (text) => `<button class="small ghost copy-btn" type="button" onclick='copyText(${JSON.stringify(text)}, this)'>复制</button>`;
   return `
-    <p class="hint" style="margin-top:0"><b>方式一：cc-switch（推荐）</b></p>
-    <ol class="steps">
-      <li>打开 CC Switch → 添加供应商 → 应用选 <code>Claude Code</code> → 预设选 <code>自定义</code></li>
-      <li>名称随意（如 cursor-bridge），JSON 配置粘贴下面内容</li>
-      <li>保存并切换到该供应商，重启 Claude Code 即生效</li>
-    </ol>
-    <div class="code-wrap"><pre>${esc(ccJson)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(ccJson)})'>复制</button></div>
-    <p class="hint"><b>方式二：直接改 Claude Code 配置</b>（写入 <code>~/.claude/settings.json</code>）</p>
-    <div class="code-wrap"><pre>${esc(claudeJson)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(claudeJson)})'>复制</button></div>
-    <p class="hint"><b>方式三：OpenAI 兼容客户端</b>：Base URL 填 <code>${esc(base)}/v1</code>，API Key 填访问令牌</p>
-    <div class="code-wrap"><pre>${esc(pyOpenai)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(pyOpenai)})'>复制</button></div>
-    <p class="hint"><b>连通性测试</b></p>
-    <div class="code-wrap"><pre>${esc(curlA)}</pre><button class="small ghost copy-btn" onclick='copyText(${JSON.stringify(curlA)})'>复制</button></div>`;
+    <div class="snippet-switch guide">
+      <div class="snip-rail">
+        <button type="button" data-snip-tab="cc" class="on">cc-switch</button>
+        <button type="button" data-snip-tab="claude">Claude Code</button>
+        <button type="button" data-snip-tab="openai">OpenAI</button>
+        <button type="button" data-snip-tab="curl">连通测试</button>
+      </div>
+      <div>
+        <div class="snip on" data-snip="cc">
+          <ol class="steps">
+            <li>打开 CC Switch → 添加供应商 → 应用选 <code>Claude Code</code> → 预设选 <code>自定义</code></li>
+            <li>名称随意（如 cursor-bridge），JSON 配置粘贴下面内容</li>
+            <li>保存并切换到该供应商，重启 Claude Code 即生效</li>
+          </ol>
+          <div class="code-wrap"><pre>${esc(ccJson)}</pre>${copy(ccJson)}</div>
+          <div class="mod-foot"><span></span><button class="sun" type="button" onclick='copyText(${JSON.stringify(ccJson)}, this)'>复制这段配置</button></div>
+        </div>
+        <div class="snip" data-snip="claude">
+          <p class="hint" style="margin-top:0">写入 <code>~/.claude/settings.json</code></p>
+          <div class="code-wrap"><pre>${esc(claudeJson)}</pre>${copy(claudeJson)}</div>
+          <div class="mod-foot"><span></span><button class="sun" type="button" onclick='copyText(${JSON.stringify(claudeJson)}, this)'>复制这段配置</button></div>
+        </div>
+        <div class="snip" data-snip="openai">
+          <p class="hint" style="margin-top:0">Base URL 填 <code>${esc(base)}/v1</code>，API Key 填访问令牌</p>
+          <div class="code-wrap"><pre>${esc(pyOpenai)}</pre>${copy(pyOpenai)}</div>
+          <div class="mod-foot"><span></span><button class="sun" type="button" onclick='copyText(${JSON.stringify(pyOpenai)}, this)'>复制这段代码</button></div>
+        </div>
+        <div class="snip" data-snip="curl">
+          <p class="hint" style="margin-top:0">用下面这条命令确认代理能通</p>
+          <div class="code-wrap"><pre>${esc(curlA)}</pre>${copy(curlA)}</div>
+          <div class="mod-foot"><span></span><button class="sun" type="button" onclick='copyText(${JSON.stringify(curlA)}, this)'>复制这条命令</button></div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function switchTab(id) {
-  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === id));
-  document.querySelectorAll(".tab-page").forEach((p) => p.classList.toggle("active", p.dataset.page === id));
+  document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll(".tab-page").forEach((p) => {
+    const on = p.dataset.page === id;
+    p.classList.toggle("active", on);
+    p.hidden = !on;
+  });
+  const meta = PAGE_META[id];
+  if (meta) {
+    $("pageTitle").textContent = meta.title;
+    $("pageDesc").textContent = meta.desc;
+  }
   location.hash = id;
 }
 
 document.getElementById("tabs")?.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-tab]");
   if (btn) switchTab(btn.dataset.tab);
+});
+
+document.getElementById("usageTable")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-fold]");
+  if (!btn) return;
+  const panel = btn.closest("tr")?.nextElementSibling;
+  if (!panel?.classList.contains("fold-row")) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+});
+
+document.getElementById("adminSnippets")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-snip-tab]");
+  if (!btn) return;
+  const root = btn.closest(".snippet-switch");
+  const id = btn.dataset.snipTab;
+  root.querySelectorAll("[data-snip-tab]").forEach((el) => el.classList.toggle("on", el.dataset.snipTab === id));
+  root.querySelectorAll(".snip[data-snip]").forEach((el) => el.classList.toggle("on", el.dataset.snip === id));
+});
+
+function paintTiles() {
+  const tools = $("allowTools").value === "true";
+  const max = $("maximize").value === "true";
+  $("allowToolsTile").classList.toggle("on", tools);
+  $("maximizeTile").classList.toggle("on", max);
+  $("allowToolsLabel").textContent = tools ? "开启 · 推荐" : "关闭 · 纯对话";
+  $("maximizeLabel").textContent = max ? "开启 · 更耗额度" : "关闭 · 官方默认档";
+}
+
+document.querySelectorAll("[data-switch]").forEach((tile) => {
+  tile.addEventListener("click", () => {
+    const sel = $(tile.dataset.switch);
+    sel.value = sel.value === "true" ? "false" : "true";
+    paintTiles();
+  });
 });
 
 function renderStatus(s) {
@@ -440,20 +514,36 @@ function renderStatus(s) {
     badge.className = "badge bad";
   }
   const lan = s.host === "0.0.0.0"
-    ? (s.lanAddresses.map((ip) => `${ip}:${s.port}`).join("<br>") || "未检测到局域网 IP")
+    ? (s.lanAddresses.map((ip) => `${ip}:${s.port}`).join(" · ") || "未检测到局域网 IP")
     : `仅 ${esc(s.host)}:${s.port}`;
+  const ok = s.cursorKey.configured;
+  const src = s.cursorKey.source === "config" ? "面板配置" : s.cursorKey.source === "env" ? "环境变量 CURSOR_API_KEY" : "SDK 浏览器登录";
   $("statusCards").innerHTML = `
-    <div class="stat"><div class="k">局域网地址</div><div class="v small">${lan}</div></div>
-    <div class="stat"><div class="k">Cursor Key</div><div class="v small">${s.cursorKey.configured ? esc(s.cursorKey.preview ?? "") + `（${esc(s.cursorKey.source)}）` : "未配置"}</div></div>
-    <div class="stat"><div class="k">可用模型</div><div class="v">${s.models ? s.models.count : "-"}</div></div>
-    <div class="stat"><div class="k">活跃 / 等待工具 / 排队</div><div class="v">${s.sessions.active} / ${s.sessions.parked} / ${s.sessions.queued}</div></div>
-    <div class="stat"><div class="k">运行时长</div><div class="v small">${Math.floor(s.uptimeSec / 60)} 分钟</div></div>`;
-  $("keyStatus").textContent = s.cursorKey.configured
-    ? `当前 Key 来源：${s.cursorKey.source === "config" ? "面板配置" : s.cursorKey.source === "env" ? "环境变量 CURSOR_API_KEY" : "SDK 浏览器登录"}`
-    : "尚未配置。填入 Cursor API Key，或点击「浏览器登录」用 Cursor 账号授权。";
+    <article class="card metric">
+      <div class="k">状态</div>
+      <div class="v">${ok ? (s.mock ? "MOCK" : "已接通") : "未接入"}</div>
+      <div class="s">${ok ? `Key ${esc(s.cursorKey.preview ?? "")} · ${esc(src)}` : "先配置 Cursor API Key"}</div>
+    </article>
+    <article class="card metric">
+      <div class="k">局域网</div>
+      <div class="v">${lan}</div>
+    </article>
+    <article class="card metric">
+      <div class="k">可用模型</div>
+      <div class="v">${s.models ? s.models.count : "-"}</div>
+    </article>
+    <article class="card metric">
+      <div class="k">会话</div>
+      <div class="v">${s.sessions.active} / ${s.sessions.parked} / ${s.sessions.queued}</div>
+      <div class="s">活跃 / 等待 / 排队 · ${Math.floor(s.uptimeSec / 60)} 分钟</div>
+    </article>`;
+  $("keyStatus").textContent = ok
+    ? `当前 Key 来源：${src}`
+    : "粘贴 crsr_ 开头的 Key，点右下角「保存并验证」。";
   $("allowTools").value = String(s.config.allowClientTools);
   $("maximize").value = String(s.config.maximizeModels ?? false);
   $("maxConcurrent").value = s.config.maxConcurrentRuns;
+  paintTiles();
   if (document.activeElement !== $("overrides")) {
     $("overrides").value = JSON.stringify(s.config.modelOverrides ?? {}, null, 2);
   }
@@ -470,13 +560,34 @@ async function refreshStatus() {
   }
 }
 
+function aliasCell(aliases) {
+  const list = aliases || [];
+  if (!list.length) return "";
+  if (list.length <= 2) return esc(list.join(" · "));
+  return `<details class="alias-fold"><summary>${esc(list.slice(0, 2).join(" · "))} · ${list.length - 2} 个</summary>${esc(list.join(" · "))}</details>`;
+}
+
+function renderModelCatalog() {
+  const q = ($("modelFilter")?.value || "").trim().toLowerCase();
+  const list = (modelsCache || []).filter((m) => {
+    if (!q) return true;
+    return m.id.toLowerCase().includes(q) || (m.displayName || "").toLowerCase().includes(q) || (m.aliases || []).some((a) => a.toLowerCase().includes(q));
+  });
+  $("modelsTable").innerHTML = list.length
+    ? list.map((m) => `<tr>
+        <td class="mono">${esc(m.id)}</td>
+        <td>${esc(m.displayName || "")}</td>
+        <td class="mono muted">${aliasCell(m.aliases)}</td>
+      </tr>`).join("")
+    : `<tr><td class="empty-cell" colspan="3">${modelsCache.length ? "没有匹配的模型" : "还没有模型列表，先在概览里接上 Cursor Key"}</td></tr>`;
+}
+
 async function refreshModels(refresh) {
   try {
     const r = await api("/admin/models" + (refresh ? "?refresh=1" : ""));
     if (!r.ok) return;
-    $("modelsTable").querySelector("tbody").innerHTML = r.models.map((m) =>
-      `<tr><td class="mono">${esc(m.id)}</td><td>${esc(m.displayName)}</td><td class="mono muted">${esc((m.aliases || []).join(", "))}</td></tr>`).join("");
     modelsCache = r.models;
+    renderModelCatalog();
     const opts = ['<option value="auto">auto（服务端自动选择）</option>']
       .concat(r.models.filter((m) => m.id !== "auto").map((m) => `<option value="${esc(m.id)}">${esc(m.id)}</option>`)).join("");
     const dm = $("defaultModel"), tm = $("testModel");
@@ -491,17 +602,24 @@ async function refreshKeys() {
     const r = await api("/admin/keys");
     keysCache = r.keys || [];
     if (keysCache.length > 0) firstTokenCache = keysCache[0].key;
-    $("keysTable").querySelector("tbody").innerHTML = keysCache.map((k, i) => {
+    $("keysTable").innerHTML = keysCache.length ? keysCache.map((k, i) => {
       const n = (k.allowedModels || []).length;
       return `<tr>
-        <td>${esc(k.label)}</td>
-        <td class="mono">${esc(k.key.slice(0, 12))}...${esc(k.key.slice(-4))}
-          <button class="small ghost" onclick='copyText(${JSON.stringify(k.key)})'>复制</button></td>
-        <td><button class="small ghost" onclick="openModelModal(${i})">${n === 0 ? "不限制 · 设置" : n + " 个 · 设置"}</button></td>
+        <td><strong>${esc(k.label)}</strong></td>
+        <td>
+          <div class="cell-token">
+            <code class="mono">${esc(k.key.slice(0, 12))}...${esc(k.key.slice(-4))}</code>
+            <button class="small ghost" type="button" onclick='copyText(${JSON.stringify(k.key)}, this)'>复制</button>
+          </div>
+        </td>
+        <td>${n === 0 ? "不限制" : n + " 个"}</td>
         <td class="muted">${new Date(k.createdAt).toLocaleString()}</td>
-        <td><button class="small danger" onclick='delKey(${JSON.stringify(k.key)})'>删除</button></td>
+        <td class="actions">
+          <button class="small ghost" type="button" onclick="openModelModal(${i})">设置模型</button>
+          <button class="small danger" type="button" onclick='delKey(${JSON.stringify(k.key)})'>删除</button>
+        </td>
       </tr>`;
-    }).join("");
+    }).join("") : `<tr><td class="empty-cell" colspan="5">还没有令牌。上面写个备注，点「生成新令牌」。</td></tr>`;
     $("adminSnippets").innerHTML = snippetsHtml(firstTokenCache);
   } catch { /* ignore */ }
 }
@@ -582,7 +700,9 @@ async function saveKeyModels() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && $("modelModal").classList.contains("show")) closeModelModal();
+  if (e.key !== "Escape") return;
+  if ($("modelModal").classList.contains("show")) closeModelModal();
+  else if ($("askModal").classList.contains("show")) finishAsk(false);
 });
 
 const fmtNum = (n) => (n >= 1e8 ? (n / 1e8).toFixed(2) + "亿" : n >= 1e4 ? (n / 1e4).toFixed(1) + "万" : String(n));
@@ -591,7 +711,7 @@ async function refreshUsage() {
   try {
     const r = await api("/admin/usage");
     if (!r.ok) return;
-    $("noUsage").style.display = r.keys.length ? "none" : "block";
+    $("noUsage").style.display = "none";
     $("usageSince").textContent = "统计自 " + new Date(r.since).toLocaleString();
     const t = r.keys.reduce(
       (a, k) => ({
@@ -602,34 +722,54 @@ async function refreshUsage() {
     );
     const grand = t.inT + t.outT + t.cw + t.cr;
     $("usageTotals").innerHTML = `
-      <div class="stat"><div class="k">总消耗</div><div class="v" title="${grand.toLocaleString()}" style="color:var(--accent2)">${fmtNum(grand)} tokens</div></div>
-      <div class="stat"><div class="k">总请求数</div><div class="v">${t.req.toLocaleString()}</div></div>
-      <div class="stat"><div class="k">输入</div><div class="v">${fmtNum(t.inT)}</div></div>
-      <div class="stat"><div class="k">输出</div><div class="v">${fmtNum(t.outT)}</div></div>
-      <div class="stat"><div class="k">缓存写</div><div class="v">${fmtNum(t.cw)}</div></div>
-      <div class="stat"><div class="k">缓存读</div><div class="v">${fmtNum(t.cr)}</div></div>`;
-    $("usageTable").querySelector("tbody").innerHTML = r.keys.map((k) => {
+      <article class="card metric"><div class="k">总消耗</div><div class="v" title="${grand.toLocaleString()}">${fmtNum(grand)}</div><div class="s">tokens</div></article>
+      <article class="card metric"><div class="k">请求</div><div class="v">${t.req.toLocaleString()}</div></article>
+      <article class="card metric"><div class="k">输入 / 输出</div><div class="v">${fmtNum(t.inT)} / ${fmtNum(t.outT)}</div></article>
+      <article class="card metric"><div class="k">缓存写 / 读</div><div class="v">${fmtNum(t.cw)} / ${fmtNum(t.cr)}</div></article>`;
+    const opened = new Set(
+      [...$("usageTable").querySelectorAll(".fold-row:not([hidden])")]
+        .map((row) => row.previousElementSibling?.dataset.label)
+        .filter(Boolean),
+    );
+    $("usageTable").innerHTML = r.keys.map((k) => {
       const total = k.inputTokens + k.outputTokens + k.cacheWriteTokens + k.cacheReadTokens;
       const models = Object.entries(k.models)
-        .sort((a, b) => b[1].inputTokens + b[1].outputTokens - (a[1].inputTokens + a[1].outputTokens))
-        .map(([m, v]) => `${esc(m)}：${fmtNum(v.inputTokens + v.outputTokens)} tokens（${v.requests} 次）`)
-        .join("<br>");
-      return `<tr>
-        <td><details><summary style="cursor:pointer">${esc(k.label)}</summary><div class="muted" style="font-size:11.5px;line-height:1.8;padding-top:4px">${models}</div></details></td>
-        <td title="${total.toLocaleString()} tokens"><b style="color:var(--accent2)">${fmtNum(total)}</b></td>
-        <td>${k.requests}</td>
-        <td>${fmtNum(k.inputTokens)}</td>
-        <td>${fmtNum(k.outputTokens)}</td>
-        <td>${fmtNum(k.cacheWriteTokens)}</td>
-        <td>${fmtNum(k.cacheReadTokens)}</td>
+        .sort((a, b) => b[1].inputTokens + b[1].outputTokens - (a[1].inputTokens + a[1].outputTokens));
+      const open = opened.has(k.label);
+      const head = models.length
+        ? `<button type="button" class="fold-toggle" data-fold aria-expanded="${open}">
+            <span class="chev" aria-hidden="true"></span>
+            <strong>${esc(k.label)}</strong>
+            <span class="count">${models.length} 个模型</span>
+          </button>`
+        : `<strong>${esc(k.label)}</strong>`;
+      const detail = models.length
+        ? `<tr class="fold-row"${open ? "" : " hidden"}>
+            <td colspan="5">
+              <table class="mini-table">
+                <thead><tr><th>模型</th><th>消耗</th><th>请求</th></tr></thead>
+                <tbody>${models.map(([m, v]) => `<tr>
+                  <td class="mono">${esc(m)}</td>
+                  <td class="num">${fmtNum(v.inputTokens + v.outputTokens)}</td>
+                  <td class="num">${v.requests}</td>
+                </tr>`).join("")}</tbody>
+              </table>
+            </td>
+          </tr>`
+        : "";
+      return `<tr data-label="${esc(k.label)}">
+        <td>${head}</td>
+        <td class="num">${k.requests}</td>
+        <td class="num" title="${total.toLocaleString()} tokens">${fmtNum(total)}</td>
+        <td class="num">${fmtNum(k.inputTokens)} / ${fmtNum(k.outputTokens)}</td>
         <td class="muted">${new Date(k.lastUsed).toLocaleString()}</td>
-      </tr>`;
-    }).join("");
+      </tr>${detail}`;
+    }).join("") || `<tr><td class="empty-cell" colspan="5">暂无用量记录</td></tr>`;
   } catch { /* ignore */ }
 }
 
 async function resetUsageStats() {
-  if (!confirm("确定清零所有用量统计？此操作不可恢复")) return;
+  if (!(await ask("确定清零所有用量统计？此操作不可恢复。", { danger: true, ok: "清零" }))) return;
   await api("/admin/usage/reset", { method: "POST" });
   toast("用量统计已清零");
   refreshUsage();
@@ -638,19 +778,19 @@ async function resetUsageStats() {
 async function refreshRequests() {
   try {
     const r = await api("/admin/requests");
-    $("noReq").style.display = r.requests.length ? "none" : "block";
-    $("reqTable").querySelector("tbody").innerHTML = r.requests.slice(0, 40).map((q) => {
+    $("noReq").style.display = "none";
+    $("reqTable").innerHTML = r.requests.length ? r.requests.slice(0, 40).map((q) => {
       const tag = q.status === "ok" ? "ok" : q.status === "tool_use" ? "tool" : "err";
       const label = q.status === "ok" ? "完成" : q.status === "tool_use" ? "工具调用" : "错误";
       return `<tr>
         <td class="muted">${new Date(q.ts).toLocaleTimeString()}</td>
-        <td>${esc(q.api)}</td><td>${esc(q.keyLabel)}</td>
-        <td class="mono">${esc(q.requestedModel)} → ${esc(q.cursorModel)}</td>
-        <td><span class="tag ${tag}">${label}</span>${q.error ? `<div class="muted" style="font-size:11px">${esc(q.error.slice(0, 80))}</div>` : ""}</td>
-        <td class="muted">${(q.durationMs / 1000).toFixed(1)}s</td>
-        <td class="muted">${q.inputTokens}/${q.outputTokens}</td>
+        <td><span class="tag ${tag}">${label}</span></td>
+        <td>${esc(q.api)} · ${esc(q.keyLabel)}</td>
+        <td class="mono">${esc(q.requestedModel)} → ${esc(q.cursorModel)}${q.error ? `<details class="alias-fold"><summary class="muted">错误</summary><div class="muted">${esc(q.error)}</div></details>` : ""}</td>
+        <td class="num">${(q.durationMs / 1000).toFixed(1)}s</td>
+        <td class="num mono">${q.inputTokens}/${q.outputTokens}</td>
       </tr>`;
-    }).join("");
+    }).join("") : `<tr><td class="empty-cell" colspan="6">暂无请求记录</td></tr>`;
   } catch { /* ignore */ }
 }
 
@@ -667,6 +807,7 @@ async function saveCursorKey() {
 }
 
 async function clearCursorKey() {
+  if (!(await ask("清除后面板将不再使用这份 Key，确定？", { danger: true, ok: "清除" }))) return;
   await api("/admin/cursor-key", { method: "DELETE" });
   toast("已清除面板配置的 Key");
   refreshStatus();
@@ -706,7 +847,7 @@ async function addKey() {
 }
 
 async function delKey(key) {
-  if (!confirm("删除后该令牌立即失效，确定？")) return;
+  if (!(await ask("删除后该令牌立即失效，确定？", { danger: true, ok: "删除" }))) return;
   const r = await api("/admin/keys/" + encodeURIComponent(key), { method: "DELETE" });
   toast(r.ok ? "已删除" : r.error);
   refreshKeys();
@@ -731,12 +872,18 @@ async function saveConfig() {
   refreshStatus();
 }
 
+function revealPanel() {
+  $("boot").classList.add("hide");
+  $("panel").style.display = "flex";
+}
+
 (async () => {
   try {
     await api("/admin/status");
-    $("panel").style.display = "flex";
+    revealPanel();
     await refreshStatus();
     await Promise.all([refreshKeys(), refreshModels(), refreshRequests(), refreshUsage()]);
+    await refreshStatus();
     const hash = location.hash.replace("#", "");
     if (["overview", "keys", "models", "guide", "monitor"].includes(hash)) switchTab(hash);
     setInterval(refreshStatus, 5000);
