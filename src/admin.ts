@@ -1,12 +1,15 @@
 import { networkInterfaces } from "node:os";
 import { Cursor } from "@cursor/sdk";
 import { Router, type Request, type Response } from "express";
+import { existsSync } from "node:fs";
 import {
   effectiveCursorKey,
   generateProxyKey,
   getConfig,
   maskKey,
   normalizeAllowedModels,
+  resolveAgentCwd,
+  resolveWorkspacePath,
   updateConfig,
   type AppConfig,
 } from "./config.js";
@@ -57,6 +60,8 @@ adminRouter.get("/status", (_req: Request, res: Response) => {
       requestTimeoutMs: config.requestTimeoutMs,
       sessionIdleMs: config.sessionIdleMs,
       modelOverrides: config.modelOverrides,
+      workspaceDir: config.workspaceDir,
+      agentCwd: resolveAgentCwd(),
     },
   });
 });
@@ -218,6 +223,7 @@ const PATCHABLE: Array<keyof AppConfig> = [
   "sessionIdleMs",
   "host",
   "port",
+  "workspaceDir",
 ];
 
 adminRouter.patch("/config", (req: Request, res: Response) => {
@@ -230,9 +236,24 @@ adminRouter.patch("/config", (req: Request, res: Response) => {
     res.status(400).json({ ok: false, error: "modelOverrides 必须是对象" });
     return;
   }
+  if ("workspaceDir" in patch) {
+    if (patch.workspaceDir != null && typeof patch.workspaceDir !== "string") {
+      res.status(400).json({ ok: false, error: "workspaceDir 必须是字符串" });
+      return;
+    }
+    const raw = String(patch.workspaceDir ?? "").trim();
+    patch.workspaceDir = raw;
+    if (raw) {
+      const resolved = resolveWorkspacePath(raw);
+      if (!existsSync(resolved)) {
+        res.status(400).json({ ok: false, error: `工作目录不存在：${resolved}` });
+        return;
+      }
+    }
+  }
   const config = updateConfig(patch);
   const needsRestart = "host" in patch || "port" in patch;
-  res.json({ ok: true, config, needsRestart });
+  res.json({ ok: true, config, needsRestart, agentCwd: resolveAgentCwd() });
 });
 
 adminRouter.get("/requests", (_req: Request, res: Response) => {

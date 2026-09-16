@@ -8,7 +8,7 @@ import {
   type SDKCustomToolContent,
   type SDKCustomToolResult,
 } from "@cursor/sdk";
-import { effectiveCursorKey, getConfig, sandboxDir } from "./config.js";
+import { effectiveCursorKey, getConfig, resolveAgentCwd } from "./config.js";
 import { info, logRequest, warn } from "./log.js";
 import { resolveModelForKey } from "./models.js";
 import { renderPrompt } from "./prompt.js";
@@ -458,7 +458,7 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
       tools: useTools ? ["mcp"] : [],
       name: `cursor-bridge ${session.id}`,
       local: {
-        cwd: sandboxDir,
+        cwd: resolveAgentCwd(),
         settingSources: [],
         ...(useTools ? { customTools } : {}),
       },

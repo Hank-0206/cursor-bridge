@@ -4,7 +4,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { adminRouter, lanAddresses } from "./admin.js";
 import { handleAnthropicMessages, handleCountTokens } from "./anthropic.js";
 import { requireAdminSession, requireApiKey, verifyAdminCredentials, type AuthedRequest } from "./auth.js";
-import { effectiveCursorKey, loadConfig, maskKey } from "./config.js";
+import { effectiveCursorKey, loadConfig, maskKey, resolveAgentCwd } from "./config.js";
 import { info, warn } from "./log.js";
 import { handleChatCompletions, handleListModels } from "./openai.js";
 import { handleResponses, handleResponsesCompact } from "./responses.js";
@@ -159,6 +159,7 @@ const server = app.listen(listenPort, config.host, () => {
     console.log(`  监听地址:    ${config.host}:${config.port}（未开放局域网）`);
   }
   console.log(`  Cursor Key:  ${source === "none" ? "未配置（请打开面板填写）" : `来源 ${source}`}`);
+  console.log(`  Agent cwd:   ${resolveAgentCwd()}`);
   if (firstKey) {
     console.log(`  访问令牌:    ${maskKey(firstKey.key)}（完整令牌见面板）`);
   }

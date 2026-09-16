@@ -41,6 +41,8 @@ export interface AppConfig {
   adminUsername: string;
   /** 管理面板登录密码，写在 data/config.json。 */
   adminPassword: string;
+  /** Cursor agent 的工作区绝对路径。留空则回退到 data/sandbox。 */
+  workspaceDir: string;
 }
 
 const DEFAULTS: AppConfig = {
@@ -57,11 +59,12 @@ const DEFAULTS: AppConfig = {
   sessionIdleMs: 600_000,
   adminUsername: "admin",
   adminPassword: "admin",
+  workspaceDir: "",
 };
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const dataDir = path.join(rootDir, "data");
-/** 空目录，作为 Cursor agent 的工作区（agent 已禁用文件/终端工具，此目录只是形式上的 cwd）。 */
+/** 未配置 workspaceDir 时的回退工作区。 */
 export const sandboxDir = path.join(dataDir, "sandbox");
 const configPath = path.join(dataDir, "config.json");
 
@@ -98,6 +101,7 @@ export function loadConfig(): AppConfig {
   config = { ...DEFAULTS, ...loaded };
   config.adminUsername = String(config.adminUsername ?? "").trim() || DEFAULTS.adminUsername;
   config.adminPassword = String(config.adminPassword ?? "") || DEFAULTS.adminPassword;
+  config.workspaceDir = String(config.workspaceDir ?? "").trim();
   config.proxyKeys = config.proxyKeys.map((k) => {
     const allowedModels = normalizeAllowedModels(k.allowedModels);
     const next: ProxyKey = { key: k.key, label: k.label, createdAt: k.createdAt };
@@ -138,6 +142,24 @@ export function effectiveCursorKey(): { key: string | undefined; source: CursorK
     return { key: undefined, source: "sdk-login" };
   }
   return { key: undefined, source: "none" };
+}
+
+/** 把用户填写的工作区路径解析成绝对路径；空字符串表示使用 sandbox。 */
+export function resolveWorkspacePath(raw: string): string {
+  const value = raw.trim();
+  if (!value) return sandboxDir;
+  const expanded = value.startsWith("~/") ? path.join(homedir(), value.slice(2)) : value;
+  return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(rootDir, expanded);
+}
+
+/** 当前 agent 实际使用的 cwd。配置了不存在的路径时回退到 sandbox。 */
+export function resolveAgentCwd(): string {
+  const configured = getConfig().workspaceDir.trim();
+  if (!configured) return sandboxDir;
+  const resolved = resolveWorkspacePath(configured);
+  if (existsSync(resolved)) return resolved;
+  console.warn(`[cursor-bridge] workspaceDir 不存在：${resolved}，回退到 ${sandboxDir}`);
+  return sandboxDir;
 }
 
 export function maskKey(key: string): string {

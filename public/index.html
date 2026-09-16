@@ -159,6 +159,11 @@
               <input type="number" id="maxConcurrent" min="1" max="32">
             </div>
           </div>
+          <div style="margin-top:14px">
+            <label class="field-label" for="workspaceDir">Agent 工作目录</label>
+            <input type="text" id="workspaceDir" placeholder="留空则使用 data/sandbox" spellcheck="false">
+            <p class="hint" id="workspaceDirHint"></p>
+          </div>
           <details class="fold-block" style="margin-top:14px">
             <summary>手动模型映射</summary>
             <label class="field-label" for="overrides">请求名 → Cursor 模型 id</label>
@@ -550,6 +555,12 @@ function renderStatus(s) {
   $("allowTools").value = String(s.config.allowClientTools);
   $("maximize").value = String(s.config.maximizeModels ?? false);
   $("maxConcurrent").value = s.config.maxConcurrentRuns;
+  if (document.activeElement !== $("workspaceDir")) {
+    $("workspaceDir").value = s.config.workspaceDir ?? "";
+  }
+  $("workspaceDirHint").textContent = s.config.agentCwd
+    ? `当前生效：${s.config.agentCwd}`
+    : "新会话会使用这个目录作为 Cursor agent 的 cwd";
   paintTiles();
   if (document.activeElement !== $("overrides")) {
     $("overrides").value = JSON.stringify(s.config.modelOverrides ?? {}, null, 2);
@@ -872,6 +883,7 @@ async function saveConfig() {
       allowClientTools: $("allowTools").value === "true",
       maximizeModels: $("maximize").value === "true",
       maxConcurrentRuns: Number($("maxConcurrent").value) || 4,
+      workspaceDir: $("workspaceDir").value.trim(),
       modelOverrides: overrides,
     }),
   });

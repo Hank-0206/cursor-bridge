@@ -219,6 +219,7 @@ Claude Code / Codex 这类客户端要求模型返回工具调用、由客户端
 | `maximizeModels` | `false` | 未写档位时自动拉满思考 / 上下文 / 速度 |
 | `maxConcurrentRuns` | `4` | 并发上限，超出排队 |
 | `requestTimeoutMs` / `sessionIdleMs` | 600000 | 输出超时 / 工具等待保活 |
+| `workspaceDir` | `""` | Cursor agent 工作区。留空回退 `data/sandbox`；改后对新会话生效 |
 
 环境变量：
 
