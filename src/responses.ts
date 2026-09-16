@@ -80,6 +80,23 @@ export function decodeBridgeCompaction(encryptedContent: string, secret: string)
   }
 }
 
+/** Codex 自定义供应商上，agent_message 的 encrypted_content 实际常是明文任务正文。 */
+function encryptedPayloadText(part: Record<string, any>): string {
+  const raw = part.encrypted_content ?? part.content ?? part.text;
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object") {
+    const nested = raw as Record<string, unknown>;
+    if (typeof nested.text === "string") return nested.text;
+    if (typeof nested.content === "string") return nested.content;
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
 function partsToText(content: unknown): { text: string; images: BridgeImage[] } {
   if (typeof content === "string") return { text: content, images: [] };
   if (!Array.isArray(content)) return { text: "", images: [] };
@@ -89,6 +106,9 @@ function partsToText(content: unknown): { text: string; images: BridgeImage[] } 
     const p = raw as Record<string, any>;
     if (p.type === "input_text" || p.type === "output_text" || p.type === "text") {
       if (typeof p.text === "string") texts.push(p.text);
+    } else if (p.type === "encrypted_content") {
+      const payload = encryptedPayloadText(p);
+      if (payload) texts.push(payload);
     } else if (p.type === "input_image") {
       const url: string = p.image_url ?? p.image_url?.url ?? "";
       const m = DATA_URL_RE.exec(typeof url === "string" ? url : "");
@@ -96,9 +116,32 @@ function partsToText(content: unknown): { text: string; images: BridgeImage[] } 
       else if (typeof url === "string" && url) texts.push(`[image: ${url}]`);
     } else if (p.type === "refusal" && typeof p.refusal === "string") {
       texts.push(p.refusal);
+    } else if (typeof p.text === "string" && p.text) {
+      texts.push(p.text);
+    } else if (typeof p.encrypted_content === "string" && p.encrypted_content) {
+      texts.push(p.encrypted_content);
     }
   }
   return { text: texts.join("\n"), images };
+}
+
+/** 把 Codex Multi-Agent v2 的 agent_message 展开成当前代理可见的用户消息。 */
+function agentMessageToText(raw: Record<string, any>): { text: string; images: BridgeImage[] } {
+  const fromParts = partsToText(Array.isArray(raw.content) ? raw.content : undefined);
+  const chunks: string[] = [];
+  if (fromParts.text.trim()) chunks.push(fromParts.text);
+  else if (typeof raw.content === "string" && raw.content.trim()) chunks.push(raw.content);
+
+  const topLevel = typeof raw.encrypted_content === "string" ? raw.encrypted_content : "";
+  if (topLevel && !chunks.some((chunk) => chunk.includes(topLevel))) chunks.push(topLevel);
+
+  let text = chunks.join("\n");
+  const author = typeof raw.author === "string" ? raw.author : "";
+  const recipient = typeof raw.recipient === "string" ? raw.recipient : "";
+  if (text.trim() && (author || recipient) && !/Message Type:/i.test(text)) {
+    text = `Message Type: MESSAGE\nTask name: ${recipient}\nSender: ${author}\nPayload:\n${text}`;
+  }
+  return { text, images: fromParts.images };
 }
 
 function outputToText(output: unknown): string {
@@ -189,12 +232,25 @@ export function parseResponsesRequest(body: Record<string, unknown>, compactionS
           });
           break;
         }
+        case "agent_message":
+        case "agent_communication": {
+          const { text, images } = agentMessageToText(raw);
+          if (text.trim() || images.length > 0) {
+            messages.push({ role: "user", text, images, toolCalls: [], toolResults: [] });
+          }
+          break;
+        }
         case "reasoning":
         case "item_reference":
           break;
         default:
           if (typeof raw.text === "string" && raw.text.trim()) {
             messages.push({ role: "user", text: raw.text, images: [], toolCalls: [], toolResults: [] });
+          } else {
+            const { text, images } = partsToText(raw.content);
+            if (text.trim() || images.length > 0) {
+              messages.push({ role: "user", text, images, toolCalls: [], toolResults: [] });
+            }
           }
       }
     }
@@ -220,6 +276,17 @@ export function parseResponsesRequest(body: Record<string, unknown>, compactionS
           description: typeof raw.description === "string" ? raw.description : undefined,
           inputSchema: { type: "object", properties: { input: { type: "string" } } },
         });
+      } else {
+        const fn = raw.function ?? raw;
+        const name = typeof fn.name === "string" ? fn.name : "";
+        // Codex 子代理工具偶发不以 type=function 下发，仍按客户端函数桥接。
+        if (/(?:^|__)(spawn_agent|followup_task|send_input|send_message|resume_agent|wait_agent|close_agent)$/i.test(name)) {
+          tools.push({
+            name,
+            description: typeof fn.description === "string" ? fn.description : undefined,
+            inputSchema: (fn.parameters ?? fn.input_schema ?? undefined) as Record<string, unknown> | undefined,
+          });
+        }
       }
       // 其它内置类型（web_search、local_shell 等）无法桥接，跳过
     }

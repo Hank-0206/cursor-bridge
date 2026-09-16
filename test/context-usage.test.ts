@@ -143,6 +143,78 @@ test("普通总结请求不会误判为 Grok Build 自动压缩", () => {
   assert.equal(req.operation, undefined);
 });
 
+test("Codex Multi-Agent v2 会把 agent_message 的明文任务展开给子代理", () => {
+  const req = parseResponsesRequest({
+    model: "grok-4.6",
+    instructions: "You are Codex.",
+    input: [
+      {
+        type: "agent_message",
+        author: "/root",
+        recipient: "/root/worker",
+        content: [
+          {
+            type: "input_text",
+            text: "Message Type: NEW_TASK\nTask name: /root/worker\nSender: /root\nPayload:\n",
+          },
+          { type: "encrypted_content", encrypted_content: "Reply with DELIVERY_OK only" },
+        ],
+      },
+    ],
+    tools: [
+      { type: "function", name: "spawn_agent", parameters: { type: "object" } },
+      { type: "function", name: "wait_agent", parameters: { type: "object" } },
+    ],
+  });
+
+  assert.equal(req.messages.length, 1);
+  assert.equal(req.messages[0]?.role, "user");
+  assert.match(req.messages[0]?.text ?? "", /NEW_TASK/);
+  assert.match(req.messages[0]?.text ?? "", /DELIVERY_OK/);
+  assert.deepEqual(req.tools.map((tool) => tool.name), ["spawn_agent", "wait_agent"]);
+
+  const rendered = renderPrompt(req).text;
+  assert.match(rendered, /DELIVERY_OK/);
+  assert.match(rendered, /spawn_agent/);
+  assert.match(rendered, /Subagent tools in that list are real MCP tools/);
+  assert.doesNotMatch(rendered, /No tools are available/);
+});
+
+test("Codex 明文 agent_message 和普通 message 里的 encrypted_content 也会保留", () => {
+  const req = parseResponsesRequest({
+    model: "auto",
+    input: [
+      {
+        type: "agent_message",
+        author: "/root/worker",
+        recipient: "/root",
+        content: [{ type: "input_text", text: "Message Type: FINAL_ANSWER\nPayload:\nAll tests passed." }],
+      },
+      {
+        type: "message",
+        role: "user",
+        content: [
+          { type: "input_text", text: "Message Type: NEW_TASK\nPayload:\n" },
+          { type: "encrypted_content", encrypted_content: "Inspect src/engine.ts" },
+        ],
+      },
+      {
+        type: "agent_message",
+        author: "/root",
+        recipient: "/root/explorer",
+        content: [{ type: "encrypted_content", encrypted_content: "Scan the auth module" }],
+      },
+    ],
+    tools: [{ name: "collaboration__spawn_agent", parameters: { type: "object" } }],
+  });
+
+  assert.match(req.messages[0]?.text ?? "", /All tests passed/);
+  assert.match(req.messages[1]?.text ?? "", /Inspect src\/engine\.ts/);
+  assert.match(req.messages[2]?.text ?? "", /Scan the auth module/);
+  assert.match(req.messages[2]?.text ?? "", /Sender: \/root/);
+  assert.deepEqual(req.tools.map((tool) => tool.name), ["collaboration__spawn_agent"]);
+});
+
 test("Cursor SDK 的 Authentication error 会归类为鉴权错误", () => {
   const err = toBridgeError(new Error("Authentication error If you are logged in, try logging out and back in."));
 
