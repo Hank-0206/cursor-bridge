@@ -171,7 +171,10 @@ test("Codex Multi-Agent v2 会把 agent_message 的明文任务展开给子代�
   assert.equal(req.messages[0]?.role, "user");
   assert.match(req.messages[0]?.text ?? "", /NEW_TASK/);
   assert.match(req.messages[0]?.text ?? "", /DELIVERY_OK/);
-  assert.deepEqual(req.tools.map((tool) => tool.name), ["spawn_agent", "wait_agent"]);
+  assert.deepEqual(
+    req.tools.map((tool) => tool.name),
+    ["spawn_agent", "wait_agent", "Task", "task", "spawn_subagent"],
+  );
 
   const rendered = renderPrompt(req).text;
   assert.match(rendered, /DELIVERY_OK/);
@@ -212,7 +215,53 @@ test("Codex 明文 agent_message 和普通 message 里的 encrypted_content 也�
   assert.match(req.messages[1]?.text ?? "", /Inspect src\/engine\.ts/);
   assert.match(req.messages[2]?.text ?? "", /Scan the auth module/);
   assert.match(req.messages[2]?.text ?? "", /Sender: \/root/);
-  assert.deepEqual(req.tools.map((tool) => tool.name), ["collaboration__spawn_agent"]);
+  assert.deepEqual(
+    req.tools.map((tool) => tool.name),
+    ["collaboration__spawn_agent", "Task", "task", "spawn_subagent"],
+  );
+});
+
+test("Codex namespace 里的 spawn_agent 会展平并带上 namespace", () => {
+  const req = parseResponsesRequest({
+    model: "grok-4.6",
+    input: [{ type: "message", role: "user", content: "派两个子代理" }],
+    tools: [
+      { type: "function", name: "exec_command", parameters: { type: "object" } },
+      {
+        type: "namespace",
+        name: "collaboration",
+        description: "Tools for spawning and managing sub-agents.",
+        tools: [
+          {
+            type: "function",
+            name: "spawn_agent",
+            description: "Create a subagent and assign its initial task.",
+            parameters: {
+              type: "object",
+              properties: {
+                task_name: { type: "string" },
+                message: { type: "string" },
+              },
+              required: ["task_name", "message"],
+            },
+          },
+          {
+            type: "function",
+            name: "wait_agent",
+            parameters: { type: "object" },
+          },
+        ],
+      },
+    ],
+  });
+
+  const spawn = req.tools.find((tool) => tool.name === "spawn_agent");
+  const wait = req.tools.find((tool) => tool.name === "wait_agent");
+  const alias = req.tools.find((tool) => tool.name === "Task");
+  assert.equal(spawn?.namespace, "collaboration");
+  assert.equal(wait?.namespace, "collaboration");
+  assert.equal(alias?.emitAs, "spawn_agent");
+  assert.ok(req.tools.some((tool) => tool.name === "exec_command"));
 });
 
 test("Cursor SDK 的 Authentication error 会归类为鉴权错误", () => {

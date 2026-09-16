@@ -2,14 +2,20 @@
 
 export interface BridgeTool {
   name: string;
+  /** Codex namespace 工具（如 collaboration / multi_agent_v1）的命名空间。 */
+  namespace?: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
+  /** 模型用此名称调用时，按该真实工具名回传给客户端。 */
+  emitAs?: string;
 }
 
 export interface BridgeToolCall {
   /** 由代理生成的调用 id（回传给客户端，同时用于会话续接匹配）。 */
   id: string;
   name: string;
+  /** 回传给 Codex 时需要带上，否则 namespaced 工具匹配失败。 */
+  namespace?: string;
   input: unknown;
 }
 

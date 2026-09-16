@@ -57,10 +57,10 @@ export function renderPrompt(req: BridgeRequest): { text: string; images: Bridge
         "- When the conversation requires one of these tools, CALL it through MCP with exactly those tool names. Never fabricate a tool result, never describe in text a call you did not make.",
         "- Historic tool calls in the transcript were executed by the client; their results appear as [tool_result] blocks.",
       );
-      if (req.tools.some((tool) => /spawn_agent|followup_task|send_input|send_message|resume_agent|wait_agent|close_agent|spawn_subagent/i.test(tool.name))) {
+      if (req.tools.some((tool) => /spawn_agent|followup_task|send_input|send_message|resume_agent|wait_agent|close_agent|spawn_subagent|^task$/i.test(tool.name))) {
         parts.push(
-          "- Subagent tools in that list are real MCP tools. To spawn, message, wait on, or close a subagent you MUST call them by those exact names. Do not use a Cursor Task tool, and do not only describe delegation in text.",
-          "- Inbound Codex agent_message / NEW_TASK blocks in the transcript are the current agent's assigned work; follow the Payload, do not ask what the task is.",
+          "- Subagent tools in that list are real MCP tools. To spawn, message, wait on, or close a subagent you MUST call them by those exact names. Do not only describe delegation in text.",
+          "- Prefer spawn_agent (or Task / spawn_subagent if listed). Inbound Codex agent_message / NEW_TASK blocks are the current agent's assigned work; follow the Payload.",
         );
       }
     } else {

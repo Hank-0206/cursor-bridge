@@ -155,6 +155,103 @@ function outputToText(output: unknown): string {
   return JSON.stringify(output ?? "");
 }
 
+const SUBAGENT_SPAWN_RE = /(?:^|__)spawn_agent$/i;
+const SUBAGENT_ALIAS_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    prompt: { type: "string", description: "Full task prompt for the subagent." },
+    description: { type: "string", description: "Short 3-5 word label for the spawned agent." },
+    subagent_type: { type: "string" },
+    message: { type: "string" },
+    task_name: { type: "string" },
+    model: { type: "string" },
+    agent_type: { type: "string" },
+  },
+};
+
+function pushFunctionTool(tools: BridgeTool[], raw: Record<string, any>, namespace?: string): void {
+  const fn = raw.function ?? raw;
+  if (typeof fn.name !== "string" || !fn.name) return;
+  tools.push({
+    name: fn.name,
+    namespace,
+    description: typeof fn.description === "string" ? fn.description : undefined,
+    inputSchema: (fn.parameters ?? fn.input_schema ?? undefined) as Record<string, unknown> | undefined,
+  });
+}
+
+function pushCustomTool(tools: BridgeTool[], raw: Record<string, any>, namespace?: string): void {
+  if (typeof raw.name !== "string" || !raw.name) return;
+  tools.push({
+    name: raw.name,
+    namespace,
+    description: typeof raw.description === "string" ? raw.description : undefined,
+    inputSchema: { type: "object", properties: { input: { type: "string" } } },
+  });
+}
+
+/** 把 Codex namespace / 扁平 function 工具收集成桥接层可注册的 MCP 工具。 */
+function collectResponsesTools(tools: BridgeTool[], raw: Record<string, any>, namespace?: string): void {
+  const type = raw.type ?? (typeof raw.name === "string" ? "function" : undefined);
+  if (type === "function") {
+    pushFunctionTool(tools, raw, namespace);
+    return;
+  }
+  if (type === "custom") {
+    pushCustomTool(tools, raw, namespace);
+    return;
+  }
+  if (type === "namespace" && Array.isArray(raw.tools)) {
+    const nestedNamespace = typeof raw.name === "string" && raw.name ? raw.name : namespace;
+    for (const nested of raw.tools as Array<Record<string, any>>) {
+      collectResponsesTools(tools, nested, nestedNamespace);
+    }
+    return;
+  }
+  const fn = raw.function ?? raw;
+  const name = typeof fn.name === "string" ? fn.name : "";
+  if (/(?:^|__)(spawn_agent|followup_task|send_input|send_message|resume_agent|wait_agent|close_agent)$/i.test(name)) {
+    pushFunctionTool(tools, raw, namespace);
+  }
+}
+
+/** Grok 习惯调用 Task / spawn_subagent；映射成 Codex 的 spawn_agent。 */
+function injectSubagentAliases(tools: BridgeTool[]): void {
+  const spawn = tools.find((tool) => SUBAGENT_SPAWN_RE.test(tool.name));
+  if (!spawn) return;
+  const names = new Set(tools.map((tool) => tool.name));
+  for (const alias of ["Task", "task", "spawn_subagent"]) {
+    if (names.has(alias)) continue;
+    tools.push({
+      name: alias,
+      namespace: spawn.namespace,
+      description:
+        spawn.description
+        ?? "Spawn a Codex subagent for parallel work. Call this or spawn_agent; do not only describe delegation.",
+      inputSchema: SUBAGENT_ALIAS_SCHEMA,
+      emitAs: spawn.name,
+    });
+  }
+}
+
+function functionCallItem(
+  call: BridgeToolCall,
+  id: string,
+  status: string,
+  argumentsText: string,
+): OutputItem {
+  const item: OutputItem = {
+    id,
+    type: "function_call",
+    status,
+    call_id: call.id,
+    name: call.name,
+    arguments: argumentsText,
+  };
+  if (call.namespace) item.namespace = call.namespace;
+  return item;
+}
+
 export function parseResponsesRequest(body: Record<string, unknown>, compactionSecret = ""): BridgeRequest {
   const model = typeof body.model === "string" ? body.model : "";
   if (!model) throw new BridgeError("invalid_request", "缺少 model 字段");
@@ -195,6 +292,7 @@ export function parseResponsesRequest(body: Record<string, unknown>, compactionS
           const call: BridgeToolCall = {
             id: String(raw.call_id ?? raw.id ?? ""),
             name: String(raw.name ?? ""),
+            namespace: typeof raw.namespace === "string" && raw.namespace ? raw.namespace : undefined,
             input: safeParse(raw.arguments),
           };
           const last = messages[messages.length - 1];
@@ -259,37 +357,9 @@ export function parseResponsesRequest(body: Record<string, unknown>, compactionS
   const tools: BridgeTool[] = [];
   if (Array.isArray(body.tools)) {
     for (const raw of body.tools as Array<Record<string, any>>) {
-      // Responses 里工具可能平铺（{type:"function",name,...}）或嵌套（{type:"function",function:{...}}）
-      if (raw.type === "function") {
-        const fn = raw.function ?? raw;
-        if (typeof fn.name === "string") {
-          tools.push({
-            name: fn.name,
-            description: typeof fn.description === "string" ? fn.description : undefined,
-            inputSchema: (fn.parameters ?? undefined) as Record<string, unknown> | undefined,
-          });
-        }
-      } else if (raw.type === "custom" && typeof raw.name === "string") {
-        // freeform / grammar 工具：无 JSON schema，作为接受单个 input 字符串的工具桥接
-        tools.push({
-          name: raw.name,
-          description: typeof raw.description === "string" ? raw.description : undefined,
-          inputSchema: { type: "object", properties: { input: { type: "string" } } },
-        });
-      } else {
-        const fn = raw.function ?? raw;
-        const name = typeof fn.name === "string" ? fn.name : "";
-        // Codex 子代理工具偶发不以 type=function 下发，仍按客户端函数桥接。
-        if (/(?:^|__)(spawn_agent|followup_task|send_input|send_message|resume_agent|wait_agent|close_agent)$/i.test(name)) {
-          tools.push({
-            name,
-            description: typeof fn.description === "string" ? fn.description : undefined,
-            inputSchema: (fn.parameters ?? fn.input_schema ?? undefined) as Record<string, unknown> | undefined,
-          });
-        }
-      }
-      // 其它内置类型（web_search、local_shell 等）无法桥接，跳过
+      collectResponsesTools(tools, raw);
     }
+    injectSubagentAliases(tools);
   }
 
   const maxTokens = typeof body.max_output_tokens === "number" ? body.max_output_tokens : undefined;
@@ -584,11 +654,11 @@ class ResponsesStreamSink implements Sink {
       const args = typeof call.input === "string" ? call.input : JSON.stringify(call.input ?? {});
       this.emit("response.output_item.added", {
         output_index: this.outputIndex,
-        item: { id: itemId, type: "function_call", status: "in_progress", call_id: call.id, name: call.name, arguments: "" },
+        item: functionCallItem(call, itemId, "in_progress", ""),
       });
       this.emit("response.function_call_arguments.delta", { item_id: itemId, output_index: this.outputIndex, delta: args });
       this.emit("response.function_call_arguments.done", { item_id: itemId, output_index: this.outputIndex, arguments: args });
-      const item: OutputItem = { id: itemId, type: "function_call", status: "completed", call_id: call.id, name: call.name, arguments: args };
+      const item = functionCallItem(call, itemId, "completed", args);
       this.emit("response.output_item.done", { output_index: this.outputIndex, item });
       this.output.push(item);
     }
@@ -672,14 +742,12 @@ class ResponsesJsonSink implements Sink {
       });
     }
     for (const c of this.calls) {
-      output.push({
-        id: fcId(),
-        type: "function_call",
-        status: "completed",
-        call_id: c.id,
-        name: c.name,
-        arguments: typeof c.input === "string" ? c.input : JSON.stringify(c.input ?? {}),
-      });
+      output.push(functionCallItem(
+        c,
+        fcId(),
+        "completed",
+        typeof c.input === "string" ? c.input : JSON.stringify(c.input ?? {}),
+      ));
     }
     const map = FINISH_STATUS[reason] ?? { status: "completed" };
     this.res.status(200).json(buildResponse(this.id, this.model, map.status, output, usage, map.incomplete));

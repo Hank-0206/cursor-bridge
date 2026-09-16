@@ -18,6 +18,7 @@ import {
   estimateRequestTokens,
   estimateTokens,
   type BridgeRequest,
+  type BridgeTool,
   type BridgeToolCall,
   type BridgeToolResult,
   type BridgeUsage,
@@ -228,13 +229,17 @@ class Session {
   }
 
   /** 模型通过 customTools 发起调用时进入这里；返回的 Promise 在客户端回传结果后才 resolve。 */
-  onToolInvoked(name: string, args: Record<string, unknown>): Promise<SDKCustomToolResult> {
+  onToolInvoked(
+    name: string,
+    args: Record<string, unknown>,
+    namespace?: string,
+  ): Promise<SDKCustomToolResult> {
     this.lastActivity = Date.now();
     const id = `toolu_cb_${randomBytes(12).toString("hex")}`;
     const promise = new Promise<SDKCustomToolResult>((resolve) => {
       this.pending.set(id, { name, resolve });
     });
-    this.batch.push({ id, name, input: args });
+    this.batch.push({ id, name, namespace, input: args });
     if (this.batchTimer) clearTimeout(this.batchTimer);
     this.batchTimer = setTimeout(() => this.flushBatch(), BATCH_MS);
     return promise;
@@ -349,6 +354,43 @@ export function toBridgeError(err: unknown): BridgeError {
   return new BridgeError("api", msg);
 }
 
+function firstString(args: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = args[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "";
+}
+
+/** 把 Grok/Cursor 习惯的 Task 参数映射成 Codex spawn_agent。 */
+function remapToSpawnAgentArgs(args: Record<string, unknown>): Record<string, unknown> {
+  if (typeof args.task_name === "string" && args.task_name.trim() && args.message != null) {
+    return args;
+  }
+  const message = firstString(args, ["message", "prompt", "input"]);
+  const taskName = firstString(args, ["task_name", "description", "subagent_type"]) || "worker";
+  const mapped: Record<string, unknown> = {
+    task_name: taskName.slice(0, 80),
+    message,
+  };
+  const agentType = firstString(args, ["agent_type", "subagent_type"]);
+  if (agentType) mapped.agent_type = agentType;
+  const model = firstString(args, ["model"]);
+  if (model) mapped.model = model;
+  return mapped;
+}
+
+function resolveClientToolCall(
+  tool: BridgeTool,
+  args: Record<string, unknown>,
+  tools: BridgeTool[],
+): { name: string; input: Record<string, unknown>; namespace?: string } {
+  const name = tool.emitAs ?? tool.name;
+  const input = tool.emitAs ? remapToSpawnAgentArgs(args) : args;
+  const canonical = tools.find((candidate) => candidate.name === name && !candidate.emitAs) ?? tool;
+  return { name, input, namespace: canonical.namespace ?? tool.namespace };
+}
+
 /* ------------------------------------------------------------------ */
 /* 入口                                                                 */
 /* ------------------------------------------------------------------ */
@@ -446,7 +488,10 @@ async function startSession(req: BridgeRequest, sink: Sink, meta: RequestMeta): 
         customTools[tool.name] = {
           description: tool.description,
           inputSchema: tool.inputSchema as SDKCustomTool["inputSchema"],
-          execute: (args) => session.onToolInvoked(tool.name, args as Record<string, unknown>),
+          execute: (args) => {
+            const mapped = resolveClientToolCall(tool, args as Record<string, unknown>, req.tools);
+            return session.onToolInvoked(mapped.name, mapped.input, mapped.namespace);
+          },
         };
       }
     }
